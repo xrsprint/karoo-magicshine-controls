@@ -269,7 +269,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Select a lamp first", Toast.LENGTH_SHORT).show()
             return
         }
-        if (currentConnectionStatus == "connected") {
+        if (controlService?.hasLiveConnection() == true) {
             return
         }
         controlService?.retryDiscoveryAndConnectFromUi()

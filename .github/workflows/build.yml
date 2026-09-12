@@ -31,8 +31,8 @@ jobs:
         gradle-version: 8.9
         cache-disabled: true
 
-    - name: Build debug APK (installable)
-      run: gradle assembleDebug --stacktrace -Pgpr.user=${{ github.actor }} -Pgpr.key=${{ secrets.GPR_KEY }}
+    - name: Test, lint, and build installable APKs
+      run: gradle :app:testDebugUnitTest :app:lintDebug assembleDebug --stacktrace -Pgpr.user=${{ github.actor }} -Pgpr.key=${{ secrets.GPR_KEY }}
       env:
         GPR_USER: ${{ github.actor }}
         GPR_KEY: ${{ secrets.GPR_KEY }}

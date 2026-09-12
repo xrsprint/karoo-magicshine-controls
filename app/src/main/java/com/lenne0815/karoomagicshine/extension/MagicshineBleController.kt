@@ -5,16 +5,24 @@ import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.lenne0815.karoomagicshine.MagicshineProtocol
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
@@ -83,7 +91,8 @@ class MagicshineBleController(
     @Volatile private var notificationJob: Job? = null
     @Volatile private var repeatingCommandJob: Job? = null
     @Volatile private var connectJob: Job? = null
-    @Volatile private var telemetryBootstrapJob: Job? = null
+    private val connectedSession = ConnectedSession(scope)
+    @Volatile private var sessionPeripheral: Peripheral? = null
     @Volatile private var observingAddress: String? = null
     private val operationMutex = Mutex()
     private val candidateLock = Any()
@@ -160,7 +169,9 @@ class MagicshineBleController(
                 if (timedOut) {
                     Log.d(TAG, "discovery session timed out seenCount=$seenCount lastSeenTag=$lastSeenTag")
                 }
-            } catch (t: Throwable) {
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Exception) {
                 publishStatus("discovery error: ${t::class.java.simpleName}")
             } finally {
                 if (discoveryJob == kotlinx.coroutines.currentCoroutineContext()[Job]) {
@@ -251,8 +262,11 @@ class MagicshineBleController(
                     publishStatus("found")
                     ensureConnected(target)
                     publishStatus("connected")
-                    scheduleTelemetryBootstrap(target)
-                } catch (t: Throwable) {
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (t: Exception) {
+                    currentCoroutineContext().ensureActive()
+                    Log.w(TAG, "Light connection failed", t)
                     cleanupAfterConnectionFailure(target)
                     publishStatus("ble error: ${t::class.java.simpleName}")
                     publishConnectionStatus("fehler")
@@ -271,16 +285,22 @@ class MagicshineBleController(
         }
     }
 
-    fun startRepeatingCommand(frameHex: String, intervalMs: Long = 1500L) {
+    fun startRepeatingCommand(frameHex: String, intervalMs: Long = 1500L): Deferred<Boolean> {
         stopRepeatingCommand()
+        val firstWrite = CompletableDeferred<Boolean>()
         repeatingCommandJob = scope.launch {
             while (true) {
-                operationMutex.withLock {
+                val sent = operationMutex.withLock {
                     sendInternal(frameHex)
                 }
+                firstWrite.complete(sent)
+                if (!sent) break
                 delay(intervalMs)
             }
+        }.also { job ->
+            job.invokeOnCompletion { firstWrite.complete(false) }
         }
+        return firstWrite
     }
 
     fun stopRepeatingCommand() {
@@ -288,59 +308,42 @@ class MagicshineBleController(
         repeatingCommandJob = null
     }
 
-    fun refreshTelemetry() {
-        // Telemetry polling is disabled until the protocol is understood well enough
-        // to avoid interfering with active light control.
-    }
-
-    fun disconnect() {
-        scope.launch {
+    fun disconnect(): Job {
+        val target = lastPeripheral
+        connectJob?.cancel()
+        stopDiscovery()
+        cancelActiveJobs()
+        return scope.launch {
             operationMutex.withLock {
-                stopRepeatingCommand()
-                val target = lastPeripheral
-                if (target == null) {
-                    publishConnectionStatus("disconnected")
-                    clearActiveConnectionState(clearCachedPeripheral = true)
-                    resetTelemetryStatus()
-                    return@withLock
-                }
-
-                if (target.state.value !is ConnectionState.Connected) {
-                    publishConnectionStatus("disconnected")
-                    clearActiveConnectionState(clearCachedPeripheral = true)
-                    resetTelemetryStatus()
-                    return@withLock
-                }
-
-                try {
-                    publishStatus("disconnecting")
-                    writeFrameWithRetry(
-                        target,
-                        MagicshineProtocol.buildPresetFrame(
-                            com.lenne0815.karoomagicshine.MagicshineModule.MODULE_1,
-                            0,
-                        ),
-                    )
-                    delay(40)
-                    writeFrameWithRetry(
-                        target,
-                        MagicshineProtocol.buildPresetFrame(
-                            com.lenne0815.karoomagicshine.MagicshineModule.MODULE_2,
-                            0,
-                        ),
-                    )
-                    delay(60)
-                    target.disconnect()
-                    cancelActiveJobs()
-                    clearActiveConnectionState(clearCachedPeripheral = true)
-                    publishStatus("disconnected")
-                    publishConnectionStatus("disconnected")
-                    resetTelemetryStatus()
-                } catch (t: Throwable) {
-                    publishStatus("disconnect error: ${t::class.java.simpleName}")
-                }
+                disconnectSafely(
+                    turnOff = {
+                        if (target?.state?.value is ConnectionState.Connected) {
+                            writeFrameWithRetry(
+                                target,
+                                MagicshineProtocol.buildPresetFrame(
+                                    com.lenne0815.karoomagicshine.MagicshineModule.MODULE_1, 0,
+                                ),
+                            )
+                        }
+                    },
+                    disconnect = { target?.disconnect() },
+                    cleanup = {
+                        if (lastPeripheral == null || lastPeripheral === target) {
+                            cancelActiveJobs()
+                            clearActiveConnectionState(clearCachedPeripheral = true)
+                            publishStatus("disconnected")
+                            publishConnectionStatus("disconnected")
+                            resetTelemetryStatus()
+                        }
+                    },
+                    onError = { Log.w(TAG, "Disconnect cleanup", it) },
+                )
             }
         }
+    }
+
+    fun close() {
+        disconnect().invokeOnCompletion { scope.cancel() }
     }
 
     private suspend fun ensureConnected(peripheral: Peripheral) {
@@ -350,76 +353,75 @@ class MagicshineBleController(
             centralManager.connect(peripheral, connectionOptions)
             discoveryJob?.cancel()
             discoveryJob = null
-            publishStatus("connected")
-            publishConnectionStatus("connected")
         } else {
             discoveryJob?.cancel()
             discoveryJob = null
-            publishStatus("connected")
-            publishConnectionStatus("connected")
         }
-        waitForTargetCharacteristic(peripheral)
+        checkNotNull(waitForTargetCharacteristic(peripheral)) { "Light characteristic unavailable" }
         ensureNotificationObservation(peripheral)
         waitUntil(timeoutMs = 40, stepMs = 8) {
             notificationJob?.isActive == true && findTargetCharacteristic(peripheral) != null
         }
+        publishStatus("connected")
+        publishConnectionStatus("connected")
+        startConnectedSession(peripheral)
     }
 
     private suspend fun cleanupAfterConnectionFailure(peripheral: Peripheral) {
-        try {
-            cancelActiveJobs()
-            peripheral.disconnect()
-        } catch (_: Throwable) {
-        } finally {
-            if (lastPeripheral?.address == peripheral.address) {
-                lastPeripheral = null
-            }
-            clearActiveConnectionState(clearCachedPeripheral = false)
-            stopDiscovery()
-            publishConnectionStatus("disconnected")
-        }
-    }
-
-    private suspend fun requestTelemetry(peripheral: Peripheral) {
-        val telemetryStartedAtMs = System.currentTimeMillis()
-        publishStatus("sync telemetry")
-        if (!writeFrameWithRetry(peripheral, "DE06A100A7ED")) return
-        delay(70)
-        if (!writeFrameWithRetry(peripheral, "DE07A601EF4FED")) return
-        delay(90)
-        if (!writeFrameWithRetry(
-                peripheral,
-                MagicshineProtocol.buildModeFrame(
-                    com.lenne0815.karoomagicshine.MagicshineModule.MODULE_1,
-                    com.lenne0815.karoomagicshine.MagicshineMode.STEADY,
-                ),
-            )
-        ) return
-        delay(70)
-        if (!writeFrameWithRetry(peripheral, "DE06A400A2ED")) return
-        waitUntil(timeoutMs = 140, stepMs = 10) {
-            lastBatteryStatusAtMs > telemetryStartedAtMs || lastTemperatureStatusAtMs > telemetryStartedAtMs
-        }
-        writeFrameWithRetry(
-            peripheral,
-            MagicshineProtocol.buildPresetFrame(com.lenne0815.karoomagicshine.MagicshineModule.MODULE_1, 0),
+        cancelActiveJobs()
+        disconnectSafely(
+            turnOff = {},
+            disconnect = { peripheral.disconnect() },
+            cleanup = {
+                if (lastPeripheral === peripheral) lastPeripheral = null
+                clearActiveConnectionState(clearCachedPeripheral = false)
+                stopDiscovery()
+                publishConnectionStatus("disconnected")
+                resetTelemetryStatus()
+            },
+            onError = { Log.w(TAG, "Connection failure cleanup", it) },
         )
     }
 
-    private fun scheduleTelemetryBootstrap(peripheral: Peripheral) {
-        telemetryBootstrapJob?.cancel()
-        telemetryBootstrapJob = scope.launch {
-            delay(180)
-            operationMutex.withLock {
-                if (peripheral.state.value !is ConnectionState.Connected) return@withLock
-                if (lastPeripheral?.address != peripheral.address) return@withLock
-                runCatching { requestTelemetry(peripheral) }
-            }
-        }.also { job ->
-            job.invokeOnCompletion {
-                if (telemetryBootstrapJob === job) telemetryBootstrapJob = null
-            }
+    private suspend fun requestTelemetry(peripheral: Peripheral) {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastBatteryStatusAtMs >= 90_000) publishBatteryStatus("?")
+        if (now - lastTemperatureStatusAtMs >= 90_000) publishTemperatureStatus("?")
+        ensureNotificationObservation(peripheral)
+        for (frame in MagicshineProtocol.telemetryRequests) {
+            check(writeFrameWithRetry(peripheral, frame)) { "Telemetry characteristic unavailable" }
+            delay(70)
         }
+    }
+
+    private fun startConnectedSession(peripheral: Peripheral) {
+        if (sessionPeripheral === peripheral) return
+        sessionPeripheral = peripheral
+        connectedSession.start(
+            connected = peripheral.state.map { it is ConnectionState.Connected },
+            poll = {
+                operationMutex.withLock {
+                    if (lastPeripheral === peripheral && peripheral.state.value is ConnectionState.Connected) {
+                        requestTelemetry(peripheral)
+                    }
+                }
+            },
+            onPollError = { Log.w(TAG, "Telemetry query failed", it) },
+            onDisconnected = {
+                operationMutex.withLock {
+                    if (lastPeripheral === peripheral && peripheral.state.value !is ConnectionState.Connected) {
+                        notificationJob?.cancel()
+                        notificationJob = null
+                        stopRepeatingCommand()
+                        sessionPeripheral = null
+                        clearActiveConnectionState(clearCachedPeripheral = true)
+                        publishStatus("disconnected")
+                        publishConnectionStatus("disconnected")
+                        resetTelemetryStatus()
+                    }
+                }
+            },
+        )
     }
 
     private suspend fun awaitTarget(): Peripheral? {
@@ -443,12 +445,11 @@ class MagicshineBleController(
     }
 
     private suspend fun writeFrame(peripheral: Peripheral, frameHex: String) {
-        val characteristic = findTargetCharacteristic(peripheral)
-        if (characteristic == null) {
-            return
+        val characteristic = checkNotNull(findTargetCharacteristic(peripheral)) {
+            "Light characteristic unavailable"
         }
-
-        characteristic.write(frameHex.hexToBytes(), WriteType.WITH_RESPONSE)
+        completeGattWrite { characteristic.write(frameHex.hexToBytes(), WriteType.WITH_RESPONSE) }
+        Log.d(TAG, "TX $frameHex")
     }
 
     private suspend fun writeFrameWithRetry(
@@ -460,7 +461,8 @@ class MagicshineBleController(
         repeat(attempts) { attempt ->
             val characteristic = findTargetCharacteristic(peripheral)
             if (characteristic != null) {
-                characteristic.write(frameHex.hexToBytes(), WriteType.WITH_RESPONSE)
+                completeGattWrite { characteristic.write(frameHex.hexToBytes(), WriteType.WITH_RESPONSE) }
+                Log.d(TAG, "TX $frameHex")
                 return true
             }
             if (attempt < attempts - 1) {
@@ -482,7 +484,11 @@ class MagicshineBleController(
                     val hex = data.toHexString()
                     parseNotifyFrame(hex)
                 }
-            } catch (_: Throwable) {
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.w(TAG, "Light notification stream failed", error)
+                resetTelemetryStatus()
             }
         }
     }
@@ -519,6 +525,7 @@ class MagicshineBleController(
     }
 
     private fun parseNotifyFrame(frameHex: String) {
+        Log.d(TAG, "RX $frameHex")
         val lampName = currentSelectedLamp()?.name ?: lastPeripheral?.name
         if (MagicshineProtocol.parseBatteryPercent(frameHex) != null) {
             publishBatteryStatus(MagicshineProtocol.parseBatteryStatus(frameHex, lampName) ?: "?")
@@ -616,22 +623,24 @@ class MagicshineBleController(
     }
 
     private fun publishBatteryStatus(message: String) {
+        if (message != "?") lastBatteryStatusAtMs = SystemClock.elapsedRealtime()
         if (lastPublishedBatteryStatus == message) return
         lastPublishedBatteryStatus = message
-        lastBatteryStatusAtMs = System.currentTimeMillis()
         onBatteryStatus(message)
     }
 
     private fun publishTemperatureStatus(message: String) {
+        if (message != "?") lastTemperatureStatusAtMs = SystemClock.elapsedRealtime()
         if (lastPublishedTemperatureStatus == message) return
         lastPublishedTemperatureStatus = message
-        lastTemperatureStatusAtMs = System.currentTimeMillis()
         onTemperatureStatus(message)
     }
 
     fun currentStatus(): String = lastPublishedStatus ?: "idle"
 
-    fun currentConnectionStatus(): String = lastPublishedConnectionStatus ?: "disconnected"
+    fun currentConnectionStatus(): String =
+        if (lastPublishedConnectionStatus == "connected" && !hasLiveConnection()) "disconnected"
+        else lastPublishedConnectionStatus ?: "disconnected"
 
     fun currentBatteryStatus(): String = lastPublishedBatteryStatus ?: "?"
 
@@ -655,9 +664,8 @@ class MagicshineBleController(
         notificationJob = null
         repeatingCommandJob?.cancel()
         repeatingCommandJob = null
-        telemetryBootstrapJob?.cancel()
-        telemetryBootstrapJob = null
-        connectJob = null
+        connectedSession.stop()
+        sessionPeripheral = null
     }
 
     private fun clearActiveConnectionState(clearCachedPeripheral: Boolean) {
@@ -674,11 +682,11 @@ class MagicshineBleController(
         publishTemperatureStatus("?")
     }
 
-    private suspend fun sendInternal(frameHex: String) {
+    private suspend fun sendInternal(frameHex: String): Boolean {
         if (preferredAddress == null) {
             publishConnectionStatus("no device")
             publishStatus("searching")
-            return
+            return false
         }
         val cached = preferredPeripheral().also { if (it != null) lastPeripheral = it } ?: lastPeripheral
         val isConnected = cached?.state?.value is ConnectionState.Connected
@@ -692,15 +700,21 @@ class MagicshineBleController(
             stopDiscovery()
             publishStatus("searching")
             publishConnectionStatus("no device")
-            return
+            return false
         }
 
-        try {
+        return try {
             ensureConnected(target)
             writeFrame(target, frameHex)
-        } catch (t: Throwable) {
+            true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Exception) {
+            currentCoroutineContext().ensureActive()
+            Log.w(TAG, "Light command failed", t)
             cleanupAfterConnectionFailure(target)
             publishStatus("ble error: ${t::class.java.simpleName}")
+            false
         }
     }
 }

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
@@ -33,7 +34,7 @@
                 android:layout_height="24dp"
                 android:contentDescription="@null"
                 android:src="@drawable/ic_sync_alt"
-                android:tint="#FFFFFFFF" />
+                app:tint="#FFFFFFFF" />
 
             <TextView
                 android:id="@+id/txtChangeLampLabel"
@@ -214,7 +215,7 @@
                         android:layout_height="25dp"
                         android:contentDescription="@null"
                         android:src="@drawable/ic_flashlight_on"
-                        android:tint="#FFFFFFFF" />
+                        app:tint="#FFFFFFFF" />
 
                     <TextView
                         android:id="@+id/txtModule1"
@@ -249,7 +250,7 @@
                         android:layout_height="25dp"
                         android:contentDescription="@null"
                         android:src="@drawable/ic_flash_on"
-                        android:tint="#FFFFFFFF" />
+                        app:tint="#FFFFFFFF" />
 
                     <TextView
                         android:id="@+id/txtModule2"
@@ -283,7 +284,7 @@
                         android:layout_height="25dp"
                         android:contentDescription="@null"
                         android:src="@drawable/ic_power_settings_new"
-                        android:tint="#FFFFFFFF" />
+                        app:tint="#FFFFFFFF" />
 
                     <TextView
                         android:id="@+id/txtOff"
@@ -418,7 +419,7 @@
                         android:layout_height="22dp"
                         android:contentDescription="@null"
                         android:src="@drawable/ic_e911_emergency"
-                        android:tint="#FFFFFFFF" />
+                        app:tint="#FFFFFFFF" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -448,7 +449,7 @@
                         android:layout_height="22dp"
                         android:contentDescription="@null"
                         android:src="@drawable/ic_flash_on"
-                        android:tint="#FFFFFFFF" />
+                        app:tint="#FFFFFFFF" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -478,7 +479,7 @@
                     android:layout_height="22dp"
                     android:contentDescription="@null"
                     android:src="@drawable/ic_link_off"
-                    android:tint="#FFFFFFFF" />
+                    app:tint="#FFFFFFFF" />
 
                 <TextView
                     android:layout_width="wrap_content"

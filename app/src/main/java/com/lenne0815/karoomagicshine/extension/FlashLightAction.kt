@@ -14,7 +14,7 @@ class FlashLightAction : ActionCallback {
     ) {
         context.startService(
             Intent(context, MagicshineControlService::class.java)
-                .setAction(MagicshineControlService.ACTION_FLASH_5_SECONDS),
+                .setAction(MagicshineControlService.ACTION_FLASH),
         )
     }
 }

@@ -5,6 +5,26 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class MagicshineProtocolTest {
+    @Test
+    fun telemetryContainsOnlyReadRequestsAndNoLightCommands() {
+        assertEquals(listOf("DE06A400A2ED", "DE06A100A7ED"), MagicshineProtocol.telemetryRequests)
+    }
+
+    @Test
+    fun everyGeneratedControlFrameHasValidLengthAndChecksum() {
+        val frames = MagicshineModule.entries.flatMap { module ->
+            (0..100).map { MagicshineProtocol.buildBrightnessFrame(module, it) } +
+                listOf(0, 25, 50, 75, 100).map { MagicshineProtocol.buildPresetFrame(module, it) } +
+                MagicshineMode.entries.map { MagicshineProtocol.buildModeFrame(module, it) }
+        } + MagicshineProtocol.telemetryRequests
+        for (frame in frames) {
+            val bytes = frame.chunked(2).map { it.toInt(16) }
+            assertEquals(frame, bytes.size, bytes[1])
+            assertEquals(frame, 0xED, bytes.last())
+            assertEquals(frame, bytes[bytes.lastIndex - 1], bytes.subList(1, bytes.size - 2).reduce(Int::xor))
+        }
+    }
+
     private val highBatteryFrame = "DE13B40000000000640000000000000000C3ED"
     private val midBatteryFrame = "DE13B4000000000032000000000000000095ED"
     private val lowBatteryFrame = "DE13B400000000001E0000000000000000B9ED"

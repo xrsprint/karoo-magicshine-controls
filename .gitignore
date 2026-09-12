@@ -1,4 +1,8 @@
 .artifacts/
+.DS_Store
+._*
+.playwright-cli/
+output/
 .gradle/
 app/build/
 LOCAL_SESSION_NOTES.md

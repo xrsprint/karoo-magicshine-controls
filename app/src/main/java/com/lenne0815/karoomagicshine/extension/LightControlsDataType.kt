@@ -71,16 +71,15 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
         var lastSignature: String? = null
         val job: Job = scope.launch {
             while (true) {
-                val enabled = LightActionReceiver.isToggleEnabled(context)
                 val status = LightFieldState.get(context)
                 val snapshot = SharedLightState.get(context)
                 val batteryStatus = RideFieldState.batteryStatus(context)
                 val isFlashing = RideFieldState.isFlashing(context)
-                val signature = "$RENDER_VERSION|$enabled|$status|${snapshot.outputTarget}|${snapshot.levelPercent}|${snapshot.mode}|${snapshot.lastOnTarget}|${snapshot.lastOnLevelPercent}|${snapshot.lastOnMode}|$batteryStatus|$isFlashing"
+                val signature = "$RENDER_VERSION|$status|${snapshot.outputTarget}|${snapshot.levelPercent}|${snapshot.mode}|${snapshot.lastOnTarget}|${snapshot.lastOnLevelPercent}|${snapshot.lastOnMode}|$batteryStatus|$isFlashing"
                 if (lastSignature != signature) {
                     val remoteViews = glance.compose(context, DpSize(viewWidth, viewHeight)) {
                         LightRideField(
-                            toggleUi = buildToggleUi(enabled, status, snapshot),
+                            toggleUi = buildToggleUi(status, snapshot),
                             flashUi = ButtonUi(
                                 label = "FLASH",
                                 background = if (isFlashing) ORANGE_COLOR else CARD_COLOR,
@@ -107,9 +106,9 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
         }
     }
 
-    private fun buildToggleUi(enabled: Boolean, status: String, snapshot: SharedLightState.Snapshot): ButtonUi {
+    private fun buildToggleUi(status: String, snapshot: SharedLightState.Snapshot): ButtonUi {
         val actualStateLabel = buildActualStateLabel(snapshot)
-        val actualStateIsOff = snapshot.outputTarget == SharedLightState.OutputTarget.OFF || !enabled
+        val actualStateIsOff = !snapshot.isOn
         val ui = when (status) {
             LightFieldState.STATUS_SEARCHING ->
                 ButtonUi("SEARCH", CARD_COLOR, iconRes = R.drawable.ic_sync_alt)

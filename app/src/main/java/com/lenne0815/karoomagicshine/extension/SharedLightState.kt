@@ -30,7 +30,9 @@ object SharedLightState {
         val lastOnTarget: OutputTarget,
         val lastOnLevelPercent: Int?,
         val lastOnMode: Mode,
-    )
+    ) {
+        val isOn: Boolean get() = outputTarget != OutputTarget.OFF
+    }
 
     fun get(context: Context): Snapshot {
         val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

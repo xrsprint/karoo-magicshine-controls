@@ -207,9 +207,6 @@ class MagicshineKarooExtension : KarooExtension("karoo-magicshine-controls", "1.
     private fun handleConnectionStatus(status: String) {
         Log.d(TAG, "ConnectionStatus=$status")
         lastConnectionStatus = status
-        if (status in setOf("disconnected", "no device", "fehler")) {
-            LightActionReceiver.setToggleEnabled(this, false)
-        }
         publishDerivedFieldState()
     }
 

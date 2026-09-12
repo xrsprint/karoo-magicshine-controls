@@ -9,7 +9,7 @@ Karoo app and Karoo extension for controlling a Magicshine light over BLE.
 Magicshine Controls is a Karoo app plus ride-field extension for controlling supported Magicshine lights over BLE.
 
 - Karoo-native control screen with telemetry
-- four-part in-ride field for light toggle, five-second flash, battery, and app launch
+- four-part in-ride field for light toggle, two-second flash, battery, and app launch
 - selection gate for supported lamp families
 
 ## Ride Screen Button
@@ -17,12 +17,28 @@ Magicshine Controls is a Karoo app plus ride-field extension for controlling sup
 Add the Magicshine field to a Karoo ride page to get four in-ride segments:
 
 - light state toggles between `OFF` and the remembered last output, level, and mode
-- `FLASH` flashes the selected light output for five seconds, then restores its previous state
+- `FLASH` flashes the selected light output for two seconds, then restores its previous state
 - battery shows `HIGH`, `MID`, or `LOW` for the tested EVO 1700, or a percentage on compatible continuous-telemetry firmware
 - `APP` opens the full app
 - the field disconnects again when you leave the ride screen
 
+The two-second action is the ride-field `FLASH` button. In the main app, `FLASH`
+still selects the continuous flashing lighting mode, alongside `SOS` and steady
+brightness settings.
+
 ## Release Notes
+
+### 1.0
+
+- first release without a Beta label; version code 31 upgrades previous Beta builds
+- replaces the connect-time light blink/OFF sequence with read-only A4/A1 telemetry
+- refreshes battery and temperature every 30 seconds while connected; stale values become unavailable after 90 seconds without a response, checked at each poll
+- observes actual BLE disconnections and allows the app's CONNECT button to retry
+- uses one shared light state for the app and ride field instead of a separate toggle flag
+- releases the BLE connection even if the OFF write fails, with bounded cleanup time
+- cancels polling, flash, and other background jobs when the service is destroyed
+- shortens the ride-field FLASH to two seconds, protects in-flight Bluetooth writes, and starts its timer only after the first flash write
+- adds regression tests for polling, disconnect cleanup, state consistency, and BLE frame integrity
 
 ### Beta 1.4.1
 
@@ -105,7 +121,7 @@ The current selector gate looks for BLE names starting with:
 1. Open the app on the Karoo.
 2. Choose the lamp once in the selection gate.
 3. Press `CONNECT`.
-4. Wait for the short connect blink.
+4. Wait for the connected status; connecting no longer changes the light output.
 5. Choose `LOW`, `HIGH`, or `OFF`.
 6. Use `25`, `50`, `75`, `100`, `SOS`, or `FLASH`.
 7. Optionally add the Magicshine field to a ride page for quick in-ride control.

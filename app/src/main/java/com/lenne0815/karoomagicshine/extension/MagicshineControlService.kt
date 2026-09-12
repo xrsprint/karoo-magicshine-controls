@@ -23,6 +23,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
+import java.util.concurrent.CopyOnWriteArraySet
 
 class MagicshineControlService : Service() {
 
@@ -49,9 +51,9 @@ class MagicshineControlService : Service() {
         private const val UI_RETRY_ATTEMPTS = 3
         private const val UI_RETRY_CONNECT_WAIT_MS = 4_000L
         private const val UI_RETRY_POLL_MS = 100L
-        private const val RIDE_FLASH_DURATION_MS = 5_000L
+        private const val RIDE_FLASH_DURATION_MS = 2_000L
         const val ACTION_TOGGLE_100 = "com.lenne0815.karoomagicshine.action.TOGGLE_100"
-        const val ACTION_FLASH_5_SECONDS = "com.lenne0815.karoomagicshine.action.FLASH_5_SECONDS"
+        const val ACTION_FLASH = "com.lenne0815.karoomagicshine.action.FLASH"
         const val ACTION_RETRY_CONNECT = "com.lenne0815.karoomagicshine.action.RETRY_CONNECT"
         const val ACTION_FIELD_VISIBLE = "com.lenne0815.karoomagicshine.action.FIELD_VISIBLE"
         const val ACTION_FIELD_HIDDEN = "com.lenne0815.karoomagicshine.action.FIELD_HIDDEN"
@@ -60,7 +62,7 @@ class MagicshineControlService : Service() {
     }
 
     private val binder = LocalBinder()
-    private val listeners = linkedSetOf<Listener>()
+    private val listeners = CopyOnWriteArraySet<Listener>()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     @Volatile private var pendingConnectJob: Job? = null
     @Volatile private var pendingToggleJob: Job? = null
@@ -113,7 +115,7 @@ class MagicshineControlService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_TOGGLE_100 -> handleToggle100()
-            ACTION_FLASH_5_SECONDS -> handleRideFlash()
+            ACTION_FLASH -> handleRideFlash()
             ACTION_RETRY_CONNECT -> retryDiscoveryAndConnect()
             ACTION_FIELD_VISIBLE -> markFieldVisible()
             ACTION_FIELD_HIDDEN -> markFieldHidden()
@@ -247,7 +249,6 @@ class MagicshineControlService : Service() {
     private fun handleToggle100() {
         cancelRideFlash()
         cancelPendingWork()
-        val enabled = LightActionReceiver.isToggleEnabled(this)
         val snapshot = SharedLightState.get(this)
         val targetModule = when (snapshot.lastOnTarget) {
             SharedLightState.OutputTarget.HIGH -> MagicshineModule.MODULE_2
@@ -256,9 +257,8 @@ class MagicshineControlService : Service() {
         }
         val targetPercent = snapshot.lastOnLevelPercent ?: 100
         val targetMode = snapshot.lastOnMode
-        if (enabled && controller.hasLiveConnection()) {
+        if (snapshot.isOn && controller.hasLiveConnection()) {
             controller.stopRepeatingCommand()
-            LightActionReceiver.setToggleEnabled(this, false)
             SharedLightState.set(this, SharedLightState.OutputTarget.OFF, null)
             LightFieldState.set(this, LightFieldState.STATUS_CONNECTED)
             controller.send(MagicshineProtocol.buildPresetFrame(targetModule, 0))
@@ -266,13 +266,11 @@ class MagicshineControlService : Service() {
         }
 
         if (controller.currentPreferredAddress() == null) {
-            LightActionReceiver.setToggleEnabled(this, false)
             SharedLightState.set(this, SharedLightState.OutputTarget.OFF, null)
             LightFieldState.set(this, LightFieldState.STATUS_NO_DEVICE)
             return
         }
         if (!controller.isBluetoothEnabled()) {
-            LightActionReceiver.setToggleEnabled(this, false)
             LightFieldState.set(this, LightFieldState.STATUS_DISCONNECTED)
             return
         }
@@ -282,16 +280,10 @@ class MagicshineControlService : Service() {
             if (!controller.hasLiveConnection() && !controller.hasConnectInFlight()) {
                 controller.connect()
             }
-            repeat(60) {
-                if (controller.hasLiveConnection()) return@repeat
-                delay(50)
-            }
-            if (!controller.hasLiveConnection()) {
-                LightActionReceiver.setToggleEnabled(this@MagicshineControlService, false)
+            if (!waitForConnectionResult(UI_RETRY_CONNECT_WAIT_MS)) {
                 SharedLightState.set(this@MagicshineControlService, SharedLightState.OutputTarget.OFF, null)
                 return@launch
             }
-            LightActionReceiver.setToggleEnabled(this@MagicshineControlService, true)
             SharedLightState.set(
                 this@MagicshineControlService,
                 when (targetModule) {
@@ -353,9 +345,10 @@ class MagicshineControlService : Service() {
 
             val flashModule = moduleFor(previousState.outputTarget, previousState.lastOnTarget)
             val flashFrame = MagicshineProtocol.buildModeFrame(flashModule, com.lenne0815.karoomagicshine.MagicshineMode.BLITZ)
-            RideFieldState.startFlash(this@MagicshineControlService, RIDE_FLASH_DURATION_MS)
             controller.stopRepeatingCommand()
-            controller.startRepeatingCommand(flashFrame, 1_500L)
+            // Count the flash duration from the first completed write, not BLE startup.
+            if (!controller.startRepeatingCommand(flashFrame, 1_500L).await()) return@launch
+            RideFieldState.startFlash(this@MagicshineControlService, RIDE_FLASH_DURATION_MS)
             delay(RIDE_FLASH_DURATION_MS)
             controller.stopRepeatingCommand()
             restoreLightState(previousState)
@@ -495,6 +488,7 @@ class MagicshineControlService : Service() {
     fun disconnect() {
         cancelRideFlash()
         cancelPendingWork()
+        SharedLightState.set(this, SharedLightState.OutputTarget.OFF, null)
         controller.disconnect()
         stopForegroundIfHeld()
     }
@@ -520,7 +514,11 @@ class MagicshineControlService : Service() {
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(bluetoothStateReceiver) }
+        cancelRideFlash()
         cancelPendingWork()
+        controller.close()
+        scope.cancel()
+        listeners.clear()
         stopForegroundIfHeld()
         super.onDestroy()
     }

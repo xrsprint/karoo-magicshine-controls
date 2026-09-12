@@ -12,6 +12,9 @@ enum class MagicshineMode {
 }
 
 object MagicshineProtocol {
+    // Read-only queries verified in the full-discharge capture. Never send A2/A6 here.
+    val telemetryRequests = listOf("DE06A400A2ED", "DE06A100A7ED")
+
     fun buildPresetFrame(module: MagicshineModule, level: Int): String {
         val normalized = level.coerceIn(0, 100)
         return when (module) {

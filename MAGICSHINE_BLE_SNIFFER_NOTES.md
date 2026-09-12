@@ -1,5 +1,19 @@
 # Magicshine BLE Sniffer Notes
 
+## Production integration: version 1.0
+
+- Production now sends only A4 (`DE06A400A2ED`) and A1 (`DE06A100A7ED`)
+  for telemetry, immediately after connecting and every 30 seconds thereafter.
+- The previous initialization mixed queries with A6, a steady-mode command,
+  and OFF. Its delayed execution could overwrite a user command. That sequence
+  is removed rather than reused for polling.
+- Repeated identical B4 responses refresh freshness just like changed values.
+  At each poll, values older than 90 seconds become unavailable.
+- Each connection owns its polling/connection observer; disconnection cancels
+  polling and repeating light commands. Telemetry never initiates a reconnect.
+- Coarse battery mapping remains HIGH/MID/LOW for the measured 100/50/30 values.
+  No new percentage or physical LED-range inference is made.
+
 ## Purpose
 
 `magicshine-sniffer` is a separate diagnostic Karoo app. It connects directly to a
