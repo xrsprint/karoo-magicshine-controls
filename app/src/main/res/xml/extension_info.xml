@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ExtensionInfo
-    id="karoo-magicshine-controls"
+    id="karoo-hori1300-controls"
     displayName="@string/app_name"
     icon="@drawable/ic_launcher"
     scansDevices="false">
 
     <DataType
-        typeId="DATATYPE_HORI1300_CONTROLS"
+        typeId="DATATYPE_HORI1300_CONTROLS_V2"
         displayName="@string/field_light_controls"
         description="@string/field_light_controls_desc"
         icon="@drawable/ic_launcher"
