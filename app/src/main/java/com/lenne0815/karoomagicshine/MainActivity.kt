@@ -186,52 +186,51 @@ class MainActivity : AppCompatActivity() {
             controlService?.startDiscovery(forceRestart = true)
             refreshLampSelectionUi()
         }
-        module1Button.setOnClickListener {
+        // HORI 1300 dedicated controls: ON/OFF | LOW | MED | HIGH | H/B
+        module1Button.visibility = View.GONE
+        module2Button.visibility = View.GONE
+        sosButton.visibility = View.GONE
+        blitzButton.visibility = View.GONE
+        disconnectButton.visibility = View.GONE
+
+        offButton.setOnClickListener { toggleHoriPower() }
+        level25Button.setOnClickListener { sendHoriMode(Hori1300Mode.LOW) }
+        level50Button.setOnClickListener { sendHoriMode(Hori1300Mode.MED) }
+        level75Button.setOnClickListener { sendHoriMode(Hori1300Mode.HIGH) }
+        level100Button.setOnClickListener { sendHoriMode(Hori1300Mode.HIGH_BEAM) }
+        disconnectButton.setOnClickListener {
             controlService?.stopRepeatingCommand()
-            selectedOutputTarget = OutputTarget.LOW
-            selectedModule = MagicshineModule.MODULE_1
-            syncSharedStateForCurrentSelection()
-            updateOutputControls()
-            updateBrightnessControls()
-            resendSelectedLevelForCurrentModule()
+            controlService?.disconnect()
         }
-        module2Button.setOnClickListener {
-            controlService?.stopRepeatingCommand()
-            selectedOutputTarget = OutputTarget.HIGH
-            selectedModule = MagicshineModule.MODULE_2
-            syncSharedStateForCurrentSelection()
-            updateOutputControls()
-            updateBrightnessControls()
-            resendSelectedLevelForCurrentModule()
-        }
-        offButton.setOnClickListener {
-            controlService?.stopRepeatingCommand()
+    }
+
+    private fun toggleHoriPower() {
+        controlService?.stopRepeatingCommand()
+        if (selectedOutputTarget == OutputTarget.OFF) {
+            sendHoriMode(Hori1300Mode.LOW)
+        } else {
             selectedOutputTarget = OutputTarget.OFF
             selectedLevelPercent = null
             SharedLightState.set(this, SharedLightState.OutputTarget.OFF, null)
             updateOutputControls()
             updateBrightnessControls()
             sendIfPermitted(MagicshineProtocol.buildPresetFrame(MagicshineModule.MODULE_1, 0))
-            sendIfPermitted(MagicshineProtocol.buildPresetFrame(MagicshineModule.MODULE_2, 0))
         }
-        updateConnectButton()
+    }
+
+    private fun sendHoriMode(mode: Hori1300Mode) {
+        controlService?.stopRepeatingCommand()
+        selectedOutputTarget = OutputTarget.LOW
+        selectedModule = MagicshineModule.MODULE_1
+        selectedLevelPercent = when (mode) {
+            Hori1300Mode.LOW -> 25
+            Hori1300Mode.MED -> 50
+            Hori1300Mode.HIGH, Hori1300Mode.HIGH_BEAM -> 100
+        }
+        SharedLightState.set(this, SharedLightState.OutputTarget.LOW, selectedLevelPercent)
         updateOutputControls()
         updateBrightnessControls()
-        refreshLampSelectionUi()
-        level25Button.setOnClickListener { sendLevel(25) }
-        level50Button.setOnClickListener { sendLevel(50) }
-        level75Button.setOnClickListener { sendLevel(75) }
-        level100Button.setOnClickListener { sendLevel(100) }
-        sosButton.setOnClickListener {
-            startModeLoop(MagicshineMode.SOS)
-        }
-        blitzButton.setOnClickListener {
-            startModeLoop(MagicshineMode.BLITZ)
-        }
-        disconnectButton.setOnClickListener {
-            controlService?.stopRepeatingCommand()
-            controlService?.disconnect()
-        }
+        sendIfPermitted(MagicshineProtocol.buildHori1300Frame(mode))
     }
 
     override fun onResume() {
@@ -569,6 +568,11 @@ class MainActivity : AppCompatActivity() {
         )
         module1Label.text = "LOW"
         module2Label.text = "HIGH"
+        (offButton as? Button)?.text = "ON/OFF"
+        (level25Button as? Button)?.text = "LOW"
+        (level50Button as? Button)?.text = "MED"
+        (level75Button as? Button)?.text = "HIGH"
+        (level100Button as? Button)?.text = "H/B"
     }
 
     private fun displayStatus(raw: String): String = when {
