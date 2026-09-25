@@ -116,7 +116,7 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
         }
     }
     companion object {
-        const val TYPE_ID = "DATATYPE_HORI1300_CONTROLS_V2"
+        const val TYPE_ID = "DATATYPE_HORI1300_CONTROLS_V3"
         private const val RENDER_VERSION = 16
 
         private val GREEN_COLOR = Color(0xFF20D39B)
