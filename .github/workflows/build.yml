@@ -54,10 +54,12 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        if gh release view v1.4 >/dev/null 2>&1; then
-          gh release upload v1.4 app/build/outputs/apk/debug/*.apk --clobber
+        VERSION=$(grep -o 'versionName "[^"]*"' app/build.gradle | cut -d'"' -f2)
+        TAG="v$VERSION"
+        if gh release view "$TAG" >/dev/null 2>&1; then
+          gh release upload "$TAG" app/build/outputs/apk/debug/*.apk --clobber
         else
-          gh release create v1.4 app/build/outputs/apk/debug/*.apk \
-            --title "Hori 1300 Controls v1.4" \
-            --notes "Hori 1300 Controls v1.4"
+          gh release create "$TAG" app/build/outputs/apk/debug/*.apk \
+            --title "Hori 1300 Controls v$VERSION" \
+            --notes "Hori 1300 Controls v$VERSION"
         fi
