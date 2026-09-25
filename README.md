@@ -142,3 +142,6 @@ The current selector gate looks for BLE names starting with:
 ## License
 
 MIT License
+
+
+<!-- CI verification trigger -->
