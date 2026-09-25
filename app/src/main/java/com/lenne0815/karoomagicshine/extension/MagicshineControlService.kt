@@ -59,6 +59,8 @@ class MagicshineControlService : Service() {
         const val ACTION_FIELD_HIDDEN = "com.lenne0815.karoomagicshine.action.FIELD_HIDDEN"
         const val ACTION_REQUEST_KAROO_BLUETOOTH =
             "com.lenne0815.karoomagicshine.action.REQUEST_KAROO_BLUETOOTH"
+        const val ACTION_HORI_MODE = "com.lenne0815.karoomagicshine.action.HORI_MODE"
+        const val EXTRA_HORI_MODE = "hori_mode"
     }
 
     private val binder = LocalBinder()
@@ -115,6 +117,7 @@ class MagicshineControlService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_TOGGLE_100 -> handleToggle100()
+            ACTION_HORI_MODE -> handleHoriMode(intent.getStringExtra(EXTRA_HORI_MODE))
             ACTION_FLASH -> handleRideFlash()
             ACTION_RETRY_CONNECT -> retryDiscoveryAndConnect()
             ACTION_FIELD_VISIBLE -> markFieldVisible()
@@ -244,6 +247,35 @@ class MagicshineControlService : Service() {
             delay(UI_RETRY_POLL_MS)
         }
         return controller.hasLiveConnection()
+    }
+
+    private fun handleHoriMode(modeName: String?) {
+        cancelRideFlash()
+        cancelPendingWork()
+        val mode = runCatching { Hori1300Mode.valueOf(modeName ?: "") }.getOrNull() ?: return
+        if (controller.currentPreferredAddress() == null) {
+            LightFieldState.set(this, LightFieldState.STATUS_NO_DEVICE)
+            return
+        }
+        if (!controller.isBluetoothEnabled()) {
+            LightFieldState.set(this, LightFieldState.STATUS_DISCONNECTED)
+            return
+        }
+        pendingToggleJob = scope.launch {
+            if (!controller.hasLiveConnection() && !controller.hasConnectInFlight()) {
+                controller.connect()
+            }
+            if (!waitForConnectionResult(UI_RETRY_CONNECT_WAIT_MS)) return@launch
+            val level = when (mode) {
+                Hori1300Mode.LOW -> 25
+                Hori1300Mode.MED -> 50
+                Hori1300Mode.HIGH,
+                Hori1300Mode.HIGH_BEAM -> 100
+            }
+            SharedLightState.set(this@MagicshineControlService, SharedLightState.OutputTarget.LOW, level)
+            LightFieldState.set(this@MagicshineControlService, LightFieldState.STATUS_CONNECTED)
+            controller.send(MagicshineProtocol.buildHori1300Frame(mode))
+        }
     }
 
     private fun handleToggle100() {
