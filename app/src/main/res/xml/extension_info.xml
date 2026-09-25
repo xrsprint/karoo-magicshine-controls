@@ -6,7 +6,7 @@
     scansDevices="false">
 
     <DataType
-        typeId="DATATYPE_LIGHT_CONTROLS"
+        typeId="DATATYPE_HORI1300_CONTROLS"
         displayName="@string/field_light_controls"
         description="@string/field_light_controls_desc"
         icon="@drawable/ic_launcher"
