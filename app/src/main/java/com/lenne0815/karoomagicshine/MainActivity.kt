@@ -193,6 +193,26 @@ class MainActivity : AppCompatActivity() {
         blitzButton.visibility = View.GONE
         disconnectButton.visibility = View.GONE
 
+        // Put the five controls into one compact row.
+        val controlRow = offButton.parent as? LinearLayout
+        val levelRow = level25Button.parent as? LinearLayout
+        if (controlRow != null && levelRow != null && controlRow !== levelRow) {
+            listOf(level25Button, level50Button, level75Button, level100Button).forEach { button ->
+                levelRow.removeView(button)
+                controlRow.addView(button)
+                (button.layoutParams as? LinearLayout.LayoutParams)?.apply {
+                    width = 0
+                    height = dpToPx(48)
+                    weight = 1f
+                    topMargin = 0
+                    bottomMargin = 0
+                    leftMargin = dpToPx(2)
+                    rightMargin = dpToPx(2)
+                }
+                button.layoutParams = button.layoutParams
+            }
+        }
+
         offButton.setOnClickListener { toggleHoriPower() }
         level25Button.setOnClickListener { sendHoriMode(Hori1300Mode.LOW) }
         level50Button.setOnClickListener { sendHoriMode(Hori1300Mode.MED) }
@@ -568,11 +588,11 @@ class MainActivity : AppCompatActivity() {
         )
         module1Label.text = "LOW"
         module2Label.text = "HIGH"
-        (offButton as? Button)?.text = "ON/OFF"
-        (level25Button as? Button)?.text = "LOW"
-        (level50Button as? Button)?.text = "MED"
-        (level75Button as? Button)?.text = "HIGH"
-        (level100Button as? Button)?.text = "H/B"
+        (offButton as? android.view.ViewGroup)?.getChildAt(1)?.let { (it as? TextView)?.text = "ON/OFF" }
+        (level25Button as? android.view.ViewGroup)?.getChildAt(0)?.let { (it as? TextView)?.text = "LOW" }
+        (level50Button as? android.view.ViewGroup)?.getChildAt(0)?.let { (it as? TextView)?.text = "MED" }
+        (level75Button as? android.view.ViewGroup)?.getChildAt(0)?.let { (it as? TextView)?.text = "HIGH" }
+        (level100Button as? android.view.ViewGroup)?.getChildAt(0)?.let { (it as? TextView)?.text = "H/B" }
     }
 
     private fun displayStatus(raw: String): String = when {
