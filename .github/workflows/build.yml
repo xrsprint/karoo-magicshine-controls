@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: read
+      contents: write
       packages: read
 
     steps:
@@ -47,3 +47,17 @@ jobs:
       with:
         name: debug-apk
         path: app/build/outputs/apk/debug/*.apk
+
+
+    - name: Publish Karoo release APK
+      if: github.ref == 'refs/heads/main'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        if gh release view v1.4 >/dev/null 2>&1; then
+          gh release upload v1.4 app/build/outputs/apk/debug/*.apk --clobber
+        else
+          gh release create v1.4 app/build/outputs/apk/debug/*.apk \
+            --title "Hori 1300 Controls v1.4" \
+            --notes "Hori 1300 Controls v1.4"
+        fi
