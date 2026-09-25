@@ -59,252 +59,61 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
 
     override fun startView(context: Context, config: ViewConfig, emitter: ViewEmitter) {
         emitter.onNext(UpdateGraphicConfig(showHeader = false))
-        context.startService(
-            Intent(context, MagicshineControlService::class.java)
-                .setAction(MagicshineControlService.ACTION_FIELD_VISIBLE),
-        )
+        context.startService(Intent(context, MagicshineControlService::class.java).setAction(MagicshineControlService.ACTION_FIELD_VISIBLE))
         val scope = CoroutineScope(Dispatchers.IO)
         val density = context.resources.displayMetrics.density.coerceAtLeast(1f)
         val viewWidth = (config.viewSize.first / density).dp
         val viewHeight = (config.viewSize.second / density).dp
-        val baseTextSize = config.textSize.toFloat().coerceAtLeast(22f).sp
+        val textSize = config.textSize.toFloat().coerceIn(16f, 22f).sp
         var lastSignature: String? = null
         val job: Job = scope.launch {
             while (true) {
                 val status = LightFieldState.get(context)
                 val snapshot = SharedLightState.get(context)
-                val batteryStatus = RideFieldState.batteryStatus(context)
-                val isFlashing = RideFieldState.isFlashing(context)
-                val signature = "$RENDER_VERSION|$status|${snapshot.outputTarget}|${snapshot.levelPercent}|${snapshot.mode}|${snapshot.lastOnTarget}|${snapshot.lastOnLevelPercent}|${snapshot.lastOnMode}|$batteryStatus|$isFlashing"
-                if (lastSignature != signature) {
+                val signature = status + "|" + snapshot.isOn + "|" + snapshot.levelPercent + "|" + snapshot.lastOnLevelPercent
+                if (signature != lastSignature) {
                     val remoteViews = glance.compose(context, DpSize(viewWidth, viewHeight)) {
-                        LightRideField(
-                            toggleUi = buildToggleUi(status, snapshot),
-                            flashUi = ButtonUi(
-                                label = "FLASH",
-                                background = if (isFlashing) ORANGE_COLOR else CARD_COLOR,
-                                iconRes = R.drawable.ic_flash_on,
-                            ),
-                            batteryUi = buildBatteryUi(batteryStatus),
-                            totalWidth = viewWidth,
-                            totalHeight = viewHeight,
-                            baseTextSize = baseTextSize,
-                        )
+                        HoriControls(snapshot, status, viewWidth, viewHeight, textSize)
                     }
                     emitter.updateView(remoteViews.remoteViews)
                     lastSignature = signature
                 }
-                delay(1000)
+                delay(500)
             }
         }
         emitter.setCancellable {
             job.cancel()
-            context.startService(
-                Intent(context, MagicshineControlService::class.java)
-                    .setAction(MagicshineControlService.ACTION_FIELD_HIDDEN),
-            )
+            context.startService(Intent(context, MagicshineControlService::class.java).setAction(MagicshineControlService.ACTION_FIELD_HIDDEN))
         }
-    }
-
-    private fun buildToggleUi(status: String, snapshot: SharedLightState.Snapshot): ButtonUi {
-        val actualStateLabel = buildActualStateLabel(snapshot)
-        val actualStateIsOff = !snapshot.isOn
-        val ui = when (status) {
-            LightFieldState.STATUS_SEARCHING ->
-                ButtonUi("SEARCH", CARD_COLOR, iconRes = R.drawable.ic_sync_alt)
-            LightFieldState.STATUS_FOUND ->
-                ButtonUi(actualStateLabel, CARD_COLOR, iconRes = R.drawable.ic_flashlight_on)
-            LightFieldState.STATUS_CONNECTING ->
-                ButtonUi("CONNECT", CARD_COLOR, allowTwoLines = true, iconRes = R.drawable.ic_sync_alt)
-            LightFieldState.STATUS_CONNECTED -> if (actualStateIsOff) {
-                ButtonUi("OFF", CARD_COLOR, iconRes = R.drawable.ic_power_settings_new)
-            } else {
-                ButtonUi(actualStateLabel, GREEN_COLOR, iconRes = R.drawable.ic_flashlight_on)
-            }
-            LightFieldState.STATUS_NO_DEVICE ->
-                ButtonUi("NO\nLAMP", ORANGE_COLOR, allowTwoLines = true, iconRes = R.drawable.ic_link_off)
-            LightFieldState.STATUS_ERROR ->
-                ButtonUi("ERROR", ORANGE_COLOR, iconRes = R.drawable.ic_e911_emergency)
-            LightFieldState.STATUS_DISCONNECTED,
-            LightFieldState.STATUS_IDLE ->
-                ButtonUi(actualStateLabel, CARD_COLOR, iconRes = R.drawable.ic_link_off)
-            else ->
-                ButtonUi(actualStateLabel, CARD_COLOR, iconRes = R.drawable.ic_flashlight_on)
-        }
-        return ui
-    }
-
-    private fun buildBatteryUi(status: String?): ButtonUi = when (status) {
-        "HIGH" -> ButtonUi("HIGH", GREEN_COLOR, iconRes = R.drawable.ic_battery_level)
-        "MID" -> ButtonUi("MID", ORANGE_COLOR, iconRes = R.drawable.ic_battery_level)
-        "LOW" -> ButtonUi("LOW", LOW_COLOR, iconRes = R.drawable.ic_battery_level)
-        null -> ButtonUi("--", CARD_DARK_COLOR, iconRes = R.drawable.ic_battery_level)
-        else -> ButtonUi(status, CARD_DARK_COLOR, iconRes = R.drawable.ic_battery_level)
-    }
-
-    private fun buildActualStateLabel(snapshot: SharedLightState.Snapshot): String {
-        if (snapshot.outputTarget == SharedLightState.OutputTarget.OFF) return "OFF"
-        val level = snapshot.levelPercent ?: snapshot.lastOnLevelPercent ?: 100
-        val prefix = when (snapshot.outputTarget) {
-            SharedLightState.OutputTarget.HIGH -> "H"
-            SharedLightState.OutputTarget.LOW,
-            SharedLightState.OutputTarget.OFF -> "L"
-        }
-        return "$prefix$level"
     }
 
     @Composable
-    private fun LightRideField(
-        toggleUi: ButtonUi,
-        flashUi: ButtonUi,
-        batteryUi: ButtonUi,
-        totalWidth: Dp,
-        totalHeight: Dp,
-        baseTextSize: TextUnit,
-    ) {
-        val outerPadding = 2.dp
+    private fun HoriControls(snapshot: SharedLightState.Snapshot, status: String, totalWidth: Dp, totalHeight: Dp, textSize: TextUnit) {
         val gap = 2.dp
-        val cellWidth = (
-            (totalWidth.value - (outerPadding.value * 2f) - (gap.value * 3f)) / 4f
-        ).coerceAtLeast(28f).dp
-        val toggleTextSize = fieldTextSize(
-            toggleUi.label,
-            cellWidth,
-            totalHeight,
-            baseTextSize,
-            toggleUi.allowTwoLines,
-            hasIcon = true,
-        )
-        val flashTextSize = fieldTextSize(flashUi.label, cellWidth, totalHeight, baseTextSize, false, hasIcon = true)
-        val batteryTextSize = fieldTextSize(batteryUi.label, cellWidth, totalHeight, baseTextSize, false, hasIcon = true)
-        val appTextSize = fieldTextSize("APP", cellWidth, totalHeight, baseTextSize, false, hasIcon = true)
-        val iconSize = (totalHeight.value * 0.24f).coerceIn(14f, 20f).dp
-        Row(
-            modifier = GlanceModifier.fillMaxSize().padding(horizontal = outerPadding, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            FieldCell(
-                label = toggleUi.label,
-                background = toggleUi.background,
-                modifier = GlanceModifier
-                    .width(cellWidth)
-                    .fillMaxHeight()
-                    .clickable(actionRunCallback<ToggleLightAction>()),
-                textSize = toggleTextSize,
-                maxLines = if (toggleUi.allowTwoLines) 2 else 1,
-                iconRes = toggleUi.iconRes,
-                iconSize = iconSize,
-            )
-            Spacer(modifier = GlanceModifier.width(gap))
-            FieldCell(
-                label = flashUi.label,
-                background = flashUi.background,
-                modifier = GlanceModifier
-                    .width(cellWidth)
-                    .fillMaxHeight()
-                    .clickable(actionRunCallback<FlashLightAction>()),
-                textSize = flashTextSize,
-                maxLines = 1,
-                iconRes = flashUi.iconRes,
-                iconSize = iconSize,
-            )
-            Spacer(modifier = GlanceModifier.width(gap))
-            FieldCell(
-                label = batteryUi.label,
-                background = batteryUi.background,
-                modifier = GlanceModifier
-                    .width(cellWidth)
-                    .fillMaxHeight(),
-                textSize = batteryTextSize,
-                maxLines = 1,
-                iconRes = batteryUi.iconRes,
-                iconSize = iconSize,
-            )
-            Spacer(modifier = GlanceModifier.width(gap))
-            FieldCell(
-                label = "APP",
-                background = CARD_DARK_COLOR,
-                modifier = GlanceModifier
-                    .width(cellWidth)
-                    .fillMaxHeight()
-                    .clickable(actionStartActivity<MainActivity>()),
-                textSize = appTextSize,
-                maxLines = 1,
-                iconRes = R.drawable.ic_apps,
-                iconSize = iconSize,
-            )
+        val cellWidth = ((totalWidth.value - 8f) / 5f).coerceAtLeast(24f).dp
+        val connected = status == LightFieldState.STATUS_CONNECTED
+        Row(modifier = GlanceModifier.fillMaxSize().padding(horizontal = 2.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalAlignment = Alignment.CenterHorizontally) {
+            HoriButton("ON/OFF", if (snapshot.isOn) GREEN_COLOR else CARD_COLOR, GlanceModifier.width(cellWidth).fillMaxHeight().clickable(actionRunCallback<ToggleLightAction>()), textSize)
+            Spacer(GlanceModifier.width(gap))
+            HoriButton("LOW", if (connected && snapshot.isOn && snapshot.levelPercent == 25) GREEN_COLOR else CARD_COLOR, GlanceModifier.width(cellWidth).fillMaxHeight().clickable(actionRunCallback<HoriLowAction>()), textSize)
+            Spacer(GlanceModifier.width(gap))
+            HoriButton("MED", if (connected && snapshot.isOn && snapshot.levelPercent == 50) GREEN_COLOR else CARD_COLOR, GlanceModifier.width(cellWidth).fillMaxHeight().clickable(actionRunCallback<HoriMedAction>()), textSize)
+            Spacer(GlanceModifier.width(gap))
+            HoriButton("HIGH", if (connected && snapshot.isOn && snapshot.levelPercent == 100) GREEN_COLOR else CARD_COLOR, GlanceModifier.width(cellWidth).fillMaxHeight().clickable(actionRunCallback<HoriHighAction>()), textSize)
+            Spacer(GlanceModifier.width(gap))
+            HoriButton("H/B", CARD_COLOR, GlanceModifier.width(cellWidth).fillMaxHeight().clickable(actionRunCallback<HoriHighBeamAction>()), textSize)
         }
-    }
-
-    private fun fieldTextSize(
-        label: String,
-        cellWidth: Dp,
-        totalHeight: Dp,
-        baseTextSize: TextUnit,
-        allowTwoLines: Boolean,
-        hasIcon: Boolean = false,
-    ): TextUnit {
-        val longestLine = label.split('\n').maxOf { it.length.coerceAtLeast(1) }
-        val heightDriven = if (allowTwoLines || hasIcon) {
-            (totalHeight.value * 0.22f).coerceIn(16f, 24f)
-        } else {
-            (totalHeight.value * 0.30f).coerceIn(22f, 34f)
-        }
-        val widthDriven = when {
-            longestLine <= 3 -> 30f
-            longestLine <= 4 -> 26f
-            longestLine <= 5 -> 22f
-            longestLine <= 6 -> 18f
-            else -> 16f
-        }.coerceAtMost((cellWidth.value * 0.28f).coerceAtLeast(12f))
-        return minOf(baseTextSize.value.coerceAtLeast(heightDriven), widthDriven).sp
     }
 
     @Composable
-    private fun FieldCell(
-        label: String,
-        background: Color,
-        modifier: GlanceModifier,
-        textSize: TextUnit,
-        maxLines: Int,
-        iconRes: Int? = null,
-        iconSize: Dp = 0.dp,
-    ) {
-        Box(
-            modifier = modifier
-                .background(ColorProvider(background, background))
-                .padding(horizontal = 4.dp, vertical = 2.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                if (iconRes != null) {
-                    Image(
-                        provider = ImageProvider(iconRes),
-                        contentDescription = label,
-                        modifier = GlanceModifier.size(iconSize),
-                    )
-                }
-                Text(
-                    text = label,
-                    maxLines = maxLines,
-                    style = TextStyle(
-                        color = ColorProvider(Color.White, Color.White),
-                        fontSize = textSize,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                    ),
-                )
-            }
+    private fun HoriButton(label: String, background: Color, modifier: GlanceModifier, textSize: TextUnit) {
+        Box(modifier = modifier.background(ColorProvider(background, background)).padding(horizontal = 2.dp), contentAlignment = Alignment.Center) {
+            Text(text = label, maxLines = 1, style = TextStyle(color = ColorProvider(Color.White, Color.White), fontSize = textSize, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center))
         }
     }
-
     companion object {
         const val TYPE_ID = "DATATYPE_LIGHT_CONTROLS"
-        private const val RENDER_VERSION = 13
+        private const val RENDER_VERSION = 15
 
         private val GREEN_COLOR = Color(0xFF20D39B)
         private val CARD_COLOR = Color(0xFF6B6B6B)
