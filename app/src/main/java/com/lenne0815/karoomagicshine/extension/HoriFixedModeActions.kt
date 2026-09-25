@@ -6,7 +6,7 @@ import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
 
-private abstract class HoriFixedModeAction : ActionCallback {
+abstract class HoriFixedModeAction : ActionCallback {
     abstract val mode: Hori1300Mode
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         context.startService(
