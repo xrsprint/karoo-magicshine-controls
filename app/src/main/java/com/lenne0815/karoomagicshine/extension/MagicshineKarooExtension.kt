@@ -15,7 +15,7 @@ import io.hammerhead.karooext.extension.KarooExtension
 import io.hammerhead.karooext.models.ReleaseBluetooth
 import io.hammerhead.karooext.models.RequestBluetooth
 
-class MagicshineKarooExtension : KarooExtension("karoo-hori1300-controls", "1.2") {
+class MagicshineKarooExtension : KarooExtension("karoo-hori1300-controls", "1.6") {
     companion object {
         private const val TAG = "MagicshineExt"
         private const val ACTION_RIDE_APP_OPENED = "io.hammerhead.intent.action.RIDE_APP_OPENED"
