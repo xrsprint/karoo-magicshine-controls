@@ -1,5 +1,6 @@
 package com.lenne0815.karoomagicshine.extension
 
+import com.lenne0815.karoomagicshine.Hori1300Mode
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
