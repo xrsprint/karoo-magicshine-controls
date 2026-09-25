@@ -1,5 +1,6 @@
 package com.lenne0815.karoomagicshine.extension
 
+import com.lenne0815.karoomagicshine.Hori1300Mode
 import android.content.Context
 import android.content.Intent
 import androidx.glance.GlanceId
