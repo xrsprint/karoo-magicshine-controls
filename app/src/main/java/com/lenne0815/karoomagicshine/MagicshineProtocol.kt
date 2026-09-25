@@ -11,6 +11,8 @@ enum class MagicshineMode {
     BLITZ,
 }
 
+enum class Hori1300Mode { LOW, MED, HIGH, HIGH_BEAM }
+
 object MagicshineProtocol {
     // Read-only queries verified in the full-discharge capture. Never send A2/A6 here.
     val telemetryRequests = listOf("DE06A400A2ED", "DE06A100A7ED")
@@ -64,6 +66,38 @@ object MagicshineProtocol {
                 buildModule2Frame(modeCode = modeCode, value = 0x64)
             }
         }
+    }
+
+    // HORI 1300 (M1-BO/M1-B0) uses the M1 two-channel command layout.
+    // The low-beam presets use the captured M1 brightness values; high beam
+    // is selected with the separate model code.
+    fun buildHori1300Frame(mode: Hori1300Mode): String {
+        return when (mode) {
+            Hori1300Mode.LOW -> buildHoriM1Frame(model = 0x01, brightness = 0x14)
+            Hori1300Mode.MED -> buildHoriM1Frame(model = 0x01, brightness = 0x3C)
+            Hori1300Mode.HIGH -> buildHoriM1Frame(model = 0x01, brightness = 0x63)
+            Hori1300Mode.HIGH_BEAM -> buildHoriM1Frame(model = 0x02, brightness = 0x63)
+        }
+    }
+
+    private fun buildHoriM1Frame(model: Int, brightness: Int): String {
+        val content = IntArray(14)
+        content[0] = 0x01
+        content[4] = 0x01
+        content[5] = model
+        content[6] = brightness
+        content[13] = 0xBB
+        val frame = IntArray(20)
+        frame[0] = 0xDE
+        frame[1] = 0x14
+        frame[2] = 0xA2
+        frame[3] = 0x01
+        for (i in content.indices) frame[4 + i] = content[i]
+        var checksum = frame[1]
+        for (i in 2 until frame.size - 2) checksum = checksum xor frame[i]
+        frame[frame.size - 2] = checksum and 0xFF
+        frame[frame.size - 1] = 0xED
+        return frame.joinToString("") { "%02X".format(it) }
     }
 
     fun parseBatteryPercent(frameHex: String): Int? {
