@@ -26,6 +26,7 @@ import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
@@ -90,18 +91,21 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
     @Composable
     private fun HoriControls(snapshot: SharedLightState.Snapshot, status: String, totalWidth: Dp, totalHeight: Dp, textSize: TextUnit) {
         val gap = 2.dp
-        val cellWidth = ((totalWidth.value - 8f) / 5f).coerceAtLeast(24f).dp
         val connected = status == LightFieldState.STATUS_CONNECTED
-        Row(modifier = GlanceModifier.fillMaxSize().padding(horizontal = 2.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalAlignment = Alignment.CenterHorizontally) {
-            HoriButton("ON/OFF", if (snapshot.isOn) GREEN_COLOR else CARD_COLOR, GlanceModifier.width(cellWidth).fillMaxHeight().clickable(actionRunCallback<ToggleLightAction>()), textSize)
-            Spacer(GlanceModifier.width(gap))
-            HoriButton("LOW", if (connected && snapshot.isOn && snapshot.levelPercent == 25) GREEN_COLOR else CARD_COLOR, GlanceModifier.width(cellWidth).fillMaxHeight().clickable(actionRunCallback<HoriLowAction>()), textSize)
-            Spacer(GlanceModifier.width(gap))
-            HoriButton("MED", if (connected && snapshot.isOn && snapshot.levelPercent == 50) GREEN_COLOR else CARD_COLOR, GlanceModifier.width(cellWidth).fillMaxHeight().clickable(actionRunCallback<HoriMedAction>()), textSize)
-            Spacer(GlanceModifier.width(gap))
-            HoriButton("HIGH", if (connected && snapshot.isOn && snapshot.levelPercent == 100) GREEN_COLOR else CARD_COLOR, GlanceModifier.width(cellWidth).fillMaxHeight().clickable(actionRunCallback<HoriHighAction>()), textSize)
-            Spacer(GlanceModifier.width(gap))
-            HoriButton("H/B", CARD_COLOR, GlanceModifier.width(cellWidth).fillMaxHeight().clickable(actionRunCallback<HoriHighBeamAction>()), textSize)
+        Column(
+            modifier = GlanceModifier.fillMaxSize().padding(horizontal = 2.dp, vertical = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HoriButton("ON/OFF", if (snapshot.isOn) GREEN_COLOR else CARD_COLOR, GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<ToggleLightAction>()), textSize)
+            Spacer(GlanceModifier.size(gap))
+            HoriButton("LOW", if (connected && snapshot.isOn && snapshot.levelPercent == 25) GREEN_COLOR else CARD_COLOR, GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriLowAction>()), textSize)
+            Spacer(GlanceModifier.size(gap))
+            HoriButton("MED", if (connected && snapshot.isOn && snapshot.levelPercent == 50) GREEN_COLOR else CARD_COLOR, GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriMedAction>()), textSize)
+            Spacer(GlanceModifier.size(gap))
+            HoriButton("HIGH", if (connected && snapshot.isOn && snapshot.levelPercent == 100) GREEN_COLOR else CARD_COLOR, GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriHighAction>()), textSize)
+            Spacer(GlanceModifier.size(gap))
+            HoriButton("High Beam", CARD_COLOR, GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriHighBeamAction>()), textSize)
         }
     }
 
@@ -113,7 +117,7 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
     }
     companion object {
         const val TYPE_ID = "DATATYPE_HORI1300_CONTROLS_V2"
-        private const val RENDER_VERSION = 15
+        private const val RENDER_VERSION = 16
 
         private val GREEN_COLOR = Color(0xFF20D39B)
         private val CARD_COLOR = Color(0xFF6B6B6B)
