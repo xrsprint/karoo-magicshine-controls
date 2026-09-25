@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ExtensionInfo
-    id="karoo-hori1300-controls"
+    id="karoo-hori1300-controls-v2"
     displayName="@string/app_name"
     icon="@drawable/ic_launcher"
     scansDevices="false">
