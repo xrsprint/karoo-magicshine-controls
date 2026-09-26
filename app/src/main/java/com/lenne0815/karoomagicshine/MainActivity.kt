@@ -178,7 +178,7 @@ class MainActivity : AppCompatActivity() {
             controlService?.startDiscovery(forceRestart = true)
             refreshLampSelectionUi()
         }
-        // HORI 1300 dedicated controls: ON/OFF | LOW | MED | HIGH | H/B
+        // HORI 1300 dedicated controls: ON/OFF | LOW | MED | HIGH | HIGH BEAM
         sosButton.visibility = View.GONE
         blitzButton.visibility = View.GONE
         disconnectButton.visibility = View.GONE
@@ -195,7 +195,7 @@ class MainActivity : AppCompatActivity() {
             buttons.forEachIndexed { index, button ->
                 (button.layoutParams as? LinearLayout.LayoutParams)?.apply {
                     width = LinearLayout.LayoutParams.MATCH_PARENT
-                    height = dpToPx(56)
+                    height = dpToPx(50)
                     weight = 0f
                     leftMargin = 0
                     rightMargin = 0
@@ -420,7 +420,7 @@ class MainActivity : AppCompatActivity() {
         val hasSelection = preferredAddress != null
         chooserGate.visibility = if (hasSelection) android.view.View.GONE else android.view.View.VISIBLE
         controlPanel.visibility = if (hasSelection) android.view.View.VISIBLE else android.view.View.GONE
-        changeLampButton.visibility = if (hasSelection) android.view.View.VISIBLE else android.view.View.GONE
+        changeLampButton.visibility = android.view.View.GONE
         changeLampLabel.text = selectedLamp?.name ?: currentSelectedLampName ?: "Switch lamp"
 
         chooserHintView.text = if (candidates.isEmpty()) {
@@ -577,7 +577,7 @@ class MainActivity : AppCompatActivity() {
         (level25Button as? android.view.ViewGroup)?.getChildAt(0)?.let { (it as? TextView)?.text = "LOW" }
         (level50Button as? android.view.ViewGroup)?.getChildAt(0)?.let { (it as? TextView)?.text = "MED" }
         (level75Button as? android.view.ViewGroup)?.getChildAt(0)?.let { (it as? TextView)?.text = "HIGH" }
-        (level100Button as? android.view.ViewGroup)?.getChildAt(0)?.let { (it as? TextView)?.text = "H/B" }
+        (level100Button as? android.view.ViewGroup)?.getChildAt(0)?.let { (it as? TextView)?.text = "HIGH BEAM" }
     }
 
     private fun displayStatus(raw: String): String = when {
