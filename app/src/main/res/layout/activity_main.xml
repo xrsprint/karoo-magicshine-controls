@@ -164,6 +164,7 @@
                 android:id="@+id/btnConnect"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
+                android:layout_weight="1"
                 android:layout_marginEnd="2dp"
                 android:background="@drawable/bg_connect_idle"
                 android:clickable="true"
@@ -230,8 +231,6 @@
                 </LinearLayout>
     
             </LinearLayout>
-
-        </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
