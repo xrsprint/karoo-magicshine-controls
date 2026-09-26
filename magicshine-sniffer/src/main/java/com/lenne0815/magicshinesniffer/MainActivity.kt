@@ -149,7 +149,11 @@ class MainActivity : Activity() {
     private fun showDevices(devices: List<String>) {
         mainHandler.post {
             deviceRow.removeAllViews()
-            if (devices.isEmpty()) return@post
+            deviceRow.visibility = android.view.View.VISIBLE
+            if (devices.isEmpty()) {
+                deviceRow.visibility = android.view.View.GONE
+                return@post
+            }
             val title = TextView(this).apply {
                 text = "Select lamp to connect:"
                 textSize = 12f
@@ -165,6 +169,8 @@ class MainActivity : Activity() {
                 button.setOnClickListener {
                     button.isEnabled = false
                     button.text = "CONNECTING… " + entry
+                    deviceRow.removeAllViews()
+                    deviceRow.visibility = android.view.View.GONE
                     sniffer.connect(address)
                 }
                 deviceRow.addView(button, LinearLayout.LayoutParams(match(), dp(44)))
