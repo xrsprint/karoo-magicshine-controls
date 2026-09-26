@@ -7,6 +7,12 @@ import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
 
+class HoriOffAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        context.startService(Intent(context, MagicshineControlService::class.java).setAction(MagicshineControlService.ACTION_HORI_OFF))
+    }
+}
+
 abstract class HoriFixedModeAction : ActionCallback {
     abstract val mode: Hori1300Mode
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
