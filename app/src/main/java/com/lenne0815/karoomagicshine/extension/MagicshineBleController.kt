@@ -287,6 +287,32 @@ class MagicshineBleController(
         }
     }
 
+    /** Connect to the HORI control point only and keep the BLE transport open.
+     * No FFE0 access, notifications, battery, temperature or telemetry. */
+    fun connectHoriControlOnly(onComplete: (Boolean) -> Unit = {}) {
+        if (connectJob?.isActive == true) return
+        connectJob = scope.launch {
+            val ok = operationMutex.withLock {
+                if (preferredAddress == null || !isBluetoothEnabled()) return@withLock false
+                if (preferredPeripheral() == null && lastPeripheral == null) startDiscovery()
+                val target = awaitTarget() ?: return@withLock false
+                try {
+                    ensureHoriControlConnected(target)
+                    lastPeripheral = target
+                    stopDiscovery()
+                    publishStatus("connected")
+                    true
+                } catch (t: Exception) {
+                    Log.w(TAG, "HORI control-only connection failed", t)
+                    false
+                }
+            }
+            onComplete(ok)
+        }.also { job ->
+            job.invokeOnCompletion { if (connectJob === job) connectJob = null }
+        }
+    }
+
     fun sendHoriControl(commands: List<String>) {
         scope.launch {
             operationMutex.withLock {
