@@ -108,7 +108,9 @@ class MagicshineBleSniffer(
     fun connect(address: String) {
         val target = discovered[address]
         if (target == null) { line("ERROR device not found; scan again"); return }
-        if (connectJob?.isActive == true) return
+        // Selecting a lamp while the 12-second scan is still running must stop
+        // the scan first; otherwise the old scan job blocks the connection.
+        connectJob?.cancel()
         connectJob = scope.launch {
             operationMutex.withLock {
                 runCatching { connectInternal(target) }
