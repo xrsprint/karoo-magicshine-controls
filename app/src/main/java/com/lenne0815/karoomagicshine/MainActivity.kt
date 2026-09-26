@@ -50,11 +50,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var connectButton: View
     private lateinit var connectLabelView: TextView
     private lateinit var connectStateView: TextView
-    private lateinit var module1Button: View
-    private lateinit var module2Button: View
     private lateinit var offButton: View
-    private lateinit var module1Label: TextView
-    private lateinit var module2Label: TextView
     private lateinit var level25Button: View
     private lateinit var level50Button: View
     private lateinit var level75Button: View
@@ -148,11 +144,7 @@ class MainActivity : AppCompatActivity() {
         connectButton = findViewById(R.id.btnConnect)
         connectLabelView = findViewById(R.id.txtConnectLabel)
         connectStateView = findViewById(R.id.txtConnectState)
-        module1Button = findViewById(R.id.btnModule1)
-        module2Button = findViewById(R.id.btnModule2)
         offButton = findViewById(R.id.btnOff)
-        module1Label = findViewById(R.id.txtModule1)
-        module2Label = findViewById(R.id.txtModule2)
         level25Button = findViewById(R.id.btnLevel25)
         level50Button = findViewById(R.id.btnLevel50)
         level75Button = findViewById(R.id.btnLevel75)
@@ -187,8 +179,6 @@ class MainActivity : AppCompatActivity() {
             refreshLampSelectionUi()
         }
         // HORI 1300 dedicated controls: ON/OFF | LOW | MED | HIGH | H/B
-        module1Button.visibility = View.GONE
-        module2Button.visibility = View.GONE
         sosButton.visibility = View.GONE
         blitzButton.visibility = View.GONE
         disconnectButton.visibility = View.GONE
@@ -580,17 +570,9 @@ class MainActivity : AppCompatActivity() {
         val module1Selected = selectedOutputTarget == OutputTarget.LOW
         val module2Selected = selectedOutputTarget == OutputTarget.HIGH
         val offSelected = selectedOutputTarget == OutputTarget.OFF
-        module1Button.setBackgroundResource(
-            if (module1Selected) R.drawable.bg_module_selected else R.drawable.bg_module_idle,
-        )
-        module2Button.setBackgroundResource(
-            if (module2Selected) R.drawable.bg_module_selected else R.drawable.bg_module_idle,
-        )
         offButton.setBackgroundResource(
             if (offSelected) R.drawable.bg_module_selected else R.drawable.bg_module_idle,
         )
-        module1Label.text = "LOW"
-        module2Label.text = "HIGH"
         (offButton as? android.view.ViewGroup)?.getChildAt(1)?.let { (it as? TextView)?.text = "ON/OFF" }
         (level25Button as? android.view.ViewGroup)?.getChildAt(0)?.let { (it as? TextView)?.text = "LOW" }
         (level50Button as? android.view.ViewGroup)?.getChildAt(0)?.let { (it as? TextView)?.text = "MED" }
