@@ -227,20 +227,55 @@ class MagicshineBleSniffer(
     fun startStateMonitor() {
         stopStateMonitor()
         stateMonitorJob = scope.launch {
-            line("STATE MONITOR: reading FFE0 every 500ms")
+            line("STATE MONITOR: discovering readable characteristics")
+            var monitorChars: List<RemoteCharacteristic> = emptyList()
+            operationMutex.withLock {
+                val target = peripheral
+                if (target?.state?.value !is ConnectionState.Connected) {
+                    line("ERROR STATE MONITOR ignored: not connected")
+                } else {
+                    runCatching {
+                        val services = withTimeoutOrNull(5_000L) {
+                            target.services().first { it.isNotEmpty() }
+                        } ?: emptyList()
+                        monitorChars = services.flatMap { service ->
+                            service.characteristics.filter {
+                                CharacteristicProperty.READ in it.properties
+                            }
+                        }
+                        monitorChars.forEach { char ->
+                            line("STATE WATCH ${char.uuid} properties=${char.properties.joinToString("+")}")
+                        }
+                        line("STATE MONITOR watching ${monitorChars.size} readable characteristic(s)")
+                    }.onFailure { error ->
+                        line("ERROR STATE DISCOVERY ${error::class.java.simpleName}: ${error.message}")
+                    }
+                }
+            }
+
+            if (monitorChars.isEmpty()) {
+                line("STATE MONITOR STOPPED: no readable characteristics")
+                return@launch
+            }
+
             while (true) {
                 operationMutex.withLock {
                     val target = peripheral
-                    val targetChar = characteristic
-                    if (target?.state?.value !is ConnectionState.Connected || targetChar == null) {
+                    if (target?.state?.value !is ConnectionState.Connected) {
                         line("ERROR STATE MONITOR ignored: not connected")
                     } else {
-                        runCatching { targetChar.read() }
-                            .onSuccess { value -> line("STATE FFE0 ${value.toHex()}") }
-                            .onFailure { error -> line("ERROR STATE READ ${error::class.java.simpleName}: ${error.message}") }
+                        monitorChars.forEach { char ->
+                            runCatching { char.read() }
+                                .onSuccess { value ->
+                                    line("STATE ${char.uuid} ${value.toHex()}")
+                                }
+                                .onFailure { error ->
+                                    line("ERROR STATE READ ${char.uuid} ${error::class.java.simpleName}: ${error.message}")
+                                }
+                        }
                     }
                 }
-                delay(500)
+                delay(1000)
             }
         }
     }
