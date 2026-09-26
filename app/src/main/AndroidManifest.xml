@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application
-        android:allowBackup="false"
-        android:icon="@drawable/ic_launcher"
-        android:label="HORI ANT CANDIDATE TEST"
-        android:roundIcon="@drawable/ic_launcher"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.KarooMagicshineControls">
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="30" />
+    <application android:allowBackup="false" android:icon="@drawable/ic_launcher" android:label="HORI ANT + HB TEST" android:roundIcon="@drawable/ic_launcher" android:supportsRtl="true" android:theme="@style/Theme.KarooMagicshineControls">
         <activity android:name=".AntDirectTestActivity" android:exported="true" android:theme="@style/Theme.KarooMagicshineControls">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
