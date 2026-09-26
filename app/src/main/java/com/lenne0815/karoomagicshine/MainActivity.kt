@@ -287,22 +287,24 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 if (currentConnectionStatus == "connected") {
-                    // The Hori can reset the Low Beam output when changing beam
-                    // mode. Re-apply the user's selected Low Beam level first,
-                    // then switch to High Beam so the normal beam is unchanged.
-                    sendIfPermitted(MagicshineProtocol.buildHori1300Frame(lowBeamMode))
-                    sendHoriControlCommands(
-                        listOf(MagicshineProtocol.buildHoriControlBeam(true)),
+                    // These writes must be one serialized BLE transaction.
+                    // Sending the two writes through separate coroutines can
+                    // let the beam-mode write happen before the brightness
+                    // frame, which makes the Hori fall back to MED.
+                    sendHoriLowBeamThenBeamMode(
+                        MagicshineProtocol.buildHori1300Frame(lowBeamMode),
+                        highBeam = true,
                     )
                 } else {
-                    // If the light is off, turn it on first, restore the selected
-                    // Low Beam level, then select High Beam.
+                    // If the light is off, turn it on first. The restore/beam
+                    // transition itself is still serialized so its write order
+                    // cannot be reversed.
                     sendHoriControlCommands(
                         listOf(MagicshineProtocol.buildHoriControlMode(15)),
                     )
-                    sendIfPermitted(MagicshineProtocol.buildHori1300Frame(lowBeamMode))
-                    sendHoriControlCommands(
-                        listOf(MagicshineProtocol.buildHoriControlBeam(true)),
+                    sendHoriLowBeamThenBeamMode(
+                        MagicshineProtocol.buildHori1300Frame(lowBeamMode),
+                        highBeam = true,
                     )
                 }
             }
@@ -326,6 +328,19 @@ class MainActivity : AppCompatActivity() {
             )
             sendIfPermitted(MagicshineProtocol.buildHori1300Frame(mode))
         }
+    }
+
+    private fun sendHoriLowBeamThenBeamMode(lowBeamFrame: String, highBeam: Boolean) {
+        if (!hasPermissions()) {
+            ensurePermissions()
+            Toast.makeText(this, "Grant Bluetooth permissions first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (currentSelectedLampAddress == null) {
+            Toast.makeText(this, "Select a lamp first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        controlService?.sendHoriLowBeamThenBeamMode(lowBeamFrame, highBeam)
     }
 
     private fun sendHoriControlCommands(commands: List<String>) {
