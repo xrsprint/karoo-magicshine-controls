@@ -2,9 +2,9 @@
   "label": "Hori 1300 Controls",
   "packageName": "com.lenne0815.karoomagicshine",
   "iconUrl": "https://raw.githubusercontent.com/xrsprint/karoo-magicshine-controls/main/app/src/main/res/drawable/ic_launcher.xml",
-  "latestApkUrl": "https://github.com/xrsprint/karoo-magicshine-controls/releases/download/v2.2/app-debug.apk",
-  "latestVersion": "2.2",
-  "latestVersionCode": 43,
+  "latestApkUrl": "https://github.com/xrsprint/karoo-magicshine-controls/releases/download/v2.3/app-debug.apk",
+  "latestVersion": "2.3",
+  "latestVersionCode": 44,
   "developer": "xrsprint",
   "description": "Control supported Magicshine lights from the Karoo app or the in-ride field, with lamp selection, quick beam switching, and battery and temperature telemetry.",
   "releaseNotes": "* Stable version 1.0 (version code 31, upgrades Beta 1.4.1)\n* Two-second ride-field FLASH with reliable restoration of the previous mode\n* Read-only battery and temperature refresh every 30 seconds without changing the light mode\n* Detects Bluetooth disconnections and permits reconnecting\n* Shares one light state between the app and ride field\n* Always cleans up connections after failed OFF writes and stops background jobs on shutdown"
