@@ -158,11 +158,11 @@ class MainActivity : Activity() {
                 val button = Button(this).apply {
                     text = entry
                     textSize = 10f
-                    setOnClickListener {
-                        button.isEnabled = false
-                        button.text = "CONNECTING… " + entry
-                        sniffer.connect(address)
-                    }
+                }
+                button.setOnClickListener {
+                    button.isEnabled = false
+                    button.text = "CONNECTING… " + entry
+                    sniffer.connect(address)
                 }
                 deviceRow.addView(button, LinearLayout.LayoutParams(match(), dp(44)))
             }
