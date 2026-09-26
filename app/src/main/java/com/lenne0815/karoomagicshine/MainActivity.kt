@@ -193,24 +193,34 @@ class MainActivity : AppCompatActivity() {
         blitzButton.visibility = View.GONE
         disconnectButton.visibility = View.GONE
 
-        // Put the five controls into one compact row.
+        // Hori 1300 manual controls: five full-width bars stacked vertically.
+        // The screenshot's manual control page is the Activity UI, not the ride-field
+        // DataType, so build the five large controls here as well.
         val controlRow = offButton.parent as? LinearLayout
         val levelRow = level25Button.parent as? LinearLayout
         if (controlRow != null && levelRow != null && controlRow !== levelRow) {
+            controlRow.orientation = LinearLayout.VERTICAL
+            controlRow.gravity = android.view.Gravity.CENTER_HORIZONTAL
+
+            val buttons = listOf(offButton, level25Button, level50Button, level75Button, level100Button)
             listOf(level25Button, level50Button, level75Button, level100Button).forEach { button ->
                 levelRow.removeView(button)
                 controlRow.addView(button)
+            }
+
+            buttons.forEachIndexed { index, button ->
                 (button.layoutParams as? LinearLayout.LayoutParams)?.apply {
-                    width = 0
-                    height = dpToPx(48)
-                    weight = 1f
-                    topMargin = 0
+                    width = LinearLayout.LayoutParams.MATCH_PARENT
+                    height = dpToPx(60)
+                    weight = 0f
+                    leftMargin = 0
+                    rightMargin = 0
+                    topMargin = if (index == 0) 0 else dpToPx(4)
                     bottomMargin = 0
-                    leftMargin = dpToPx(2)
-                    rightMargin = dpToPx(2)
                 }
                 button.layoutParams = button.layoutParams
             }
+            levelRow.visibility = View.GONE
         }
 
         offButton.setOnClickListener { toggleHoriPower() }
