@@ -10,6 +10,7 @@ import androidx.glance.GlanceModifier
 import androidx.glance.appwidget.ExperimentalGlanceRemoteViewsApi
 import androidx.glance.appwidget.GlanceRemoteViews
 import androidx.glance.background
+import androidx.glance.appwidget.cornerRadius
 import androidx.glance.color.ColorProvider
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -59,13 +60,13 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TestBox("OFF", GlanceModifier.fillMaxWidth().defaultWeight())
-            Spacer(GlanceModifier.size(3.dp))
+            Spacer(GlanceModifier.size(6.dp))
             TestBox("LOW", GlanceModifier.fillMaxWidth().defaultWeight())
-            Spacer(GlanceModifier.size(3.dp))
+            Spacer(GlanceModifier.size(6.dp))
             TestBox("MED", GlanceModifier.fillMaxWidth().defaultWeight())
-            Spacer(GlanceModifier.size(3.dp))
+            Spacer(GlanceModifier.size(6.dp))
             TestBox("HIGH", GlanceModifier.fillMaxWidth().defaultWeight())
-            Spacer(GlanceModifier.size(3.dp))
+            Spacer(GlanceModifier.size(6.dp))
             TestBox("HIGH BEAM", GlanceModifier.fillMaxWidth().defaultWeight())
         }
     }
@@ -73,18 +74,36 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
     @Composable
     private fun TestBox(label: String, modifier: GlanceModifier) {
         Box(
-            modifier = modifier.background(ColorProvider(Color(0xFF6B6B6B), Color(0xFF6B6B6B))),
+            modifier = modifier
+                .background(ColorProvider(Color(0xFF171717), Color(0xFF171717)))
+                .cornerRadius(12.dp)
+                .padding(3.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = label,
-                style = TextStyle(
-                    color = ColorProvider(Color.White, Color.White),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                ),
-            )
+            Column(
+                modifier = GlanceModifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = label,
+                    style = TextStyle(
+                        color = ColorProvider(Color.White, Color.White),
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    ),
+                )
+                Spacer(GlanceModifier.size(5.dp))
+                Text(
+                    text = "tap",
+                    style = TextStyle(
+                        color = ColorProvider(Color(0xFFE0E0E0), Color(0xFFE0E0E0)),
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                    ),
+                )
+            }
         }
     }
 
