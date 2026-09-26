@@ -155,10 +155,16 @@
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/btnConnect"
+                android:id="@+id/connectionAndPowerRow"
                 android:layout_width="match_parent"
-                android:layout_height="60dp"
+                android:layout_height="56dp"
                 android:layout_marginTop="4dp"
+                android:orientation="horizontal">
+            <LinearLayout
+                android:id="@+id/btnConnect"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="2dp"
                 android:background="@drawable/bg_connect_idle"
                 android:clickable="true"
                 android:focusable="true"
@@ -188,85 +194,11 @@
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:orientation="horizontal">
-
-                <LinearLayout
-                    android:id="@+id/btnModule1"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_marginEnd="2dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_module_selected"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?attr/selectableItemBackground"
-                    android:gravity="center"
-                    android:orientation="horizontal"
-                    android:paddingStart="3dp"
-                    android:paddingEnd="3dp">
-
-                    <ImageView
-                        android:id="@+id/imgModule1"
-                        android:layout_width="25dp"
-                        android:layout_height="25dp"
-                        android:contentDescription="@null"
-                        android:src="@drawable/ic_flashlight_on"
-                        app:tint="#FFFFFFFF" />
-
-                    <TextView
-                        android:id="@+id/txtModule1"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:text="LOW"
-                        android:textColor="#FFFFFFFF"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/btnModule2"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_marginStart="2dp"
-                    android:layout_marginEnd="2dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_module_idle"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?attr/selectableItemBackground"
-                    android:gravity="center"
-                    android:orientation="horizontal"
-                    android:paddingStart="3dp"
-                    android:paddingEnd="3dp">
-
-                    <ImageView
-                        android:id="@+id/imgModule2"
-                        android:layout_width="25dp"
-                        android:layout_height="25dp"
-                        android:contentDescription="@null"
-                        android:src="@drawable/ic_flash_on"
-                        app:tint="#FFFFFFFF" />
-
-                    <TextView
-                        android:id="@+id/txtModule2"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:text="HIGH"
-                        android:textColor="#FFFFFFFF"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
 
                 <LinearLayout
                     android:id="@+id/btnOff"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="match_parent"
                     android:layout_marginStart="2dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_module_idle"
@@ -296,7 +228,10 @@
                         android:textSize="16sp"
                         android:textStyle="bold" />
                 </LinearLayout>
+    
             </LinearLayout>
+
+        </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
