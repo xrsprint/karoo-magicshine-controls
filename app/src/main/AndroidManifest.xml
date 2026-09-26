@@ -38,13 +38,13 @@
 
         <service
             android:name=".extension.MagicshineControlService"
-            android:enabled="true"
+            android:enabled="false"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
         <service
             android:name=".extension.MagicshineKarooExtension"
-            android:enabled="true"
+            android:enabled="false"
             android:exported="true">
             <intent-filter>
                 <action android:name="io.hammerhead.karooext.KAROO_EXTENSION" />
