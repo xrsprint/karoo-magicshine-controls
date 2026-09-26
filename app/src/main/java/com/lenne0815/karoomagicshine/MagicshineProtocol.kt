@@ -71,6 +71,8 @@ object MagicshineProtocol {
     // HORI 1300 (M1-BO/M1-B0) uses the M1 two-channel command layout.
     // The low-beam presets use the captured M1 brightness values; high beam
     // is selected with the separate model code.
+    fun buildHori1300OffFrame(): String = buildHoriM1Frame(model = 0x01, brightness = 0x00)
+
     fun buildHori1300Frame(mode: Hori1300Mode): String {
         return when (mode) {
             Hori1300Mode.LOW -> buildHoriM1Frame(model = 0x01, brightness = 0x14)
