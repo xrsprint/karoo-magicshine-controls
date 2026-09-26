@@ -237,7 +237,9 @@ class MainActivity : AppCompatActivity() {
             SharedLightState.set(this, SharedLightState.OutputTarget.OFF, null)
             updateOutputControls()
             updateBrightnessControls()
-            sendIfPermitted(MagicshineProtocol.buildHori1300OffFrame())
+            sendHoriControlCommands(
+                listOf(MagicshineProtocol.buildHoriControlMode(0)),
+            )
         }
     }
 
@@ -254,7 +256,35 @@ class MainActivity : AppCompatActivity() {
         SharedLightState.set(this, SharedLightState.OutputTarget.LOW, selectedLevelPercent)
         updateOutputControls()
         updateBrightnessControls()
-        sendIfPermitted(MagicshineProtocol.buildHori1300Frame(mode))
+
+        if (mode == Hori1300Mode.HIGH_BEAM) {
+            // Bluetooth Light Profile: mode 15 = constant ON, beam 1 = High Beam.
+            sendHoriControlCommands(
+                listOf(
+                    MagicshineProtocol.buildHoriControlMode(15),
+                    MagicshineProtocol.buildHoriControlBeam(true),
+                ),
+            )
+        } else {
+            // Explicitly return to Low Beam before applying the proven legacy brightness frame.
+            sendHoriControlCommands(
+                listOf(MagicshineProtocol.buildHoriControlBeam(false)),
+            )
+            sendIfPermitted(MagicshineProtocol.buildHori1300Frame(mode))
+        }
+    }
+
+    private fun sendHoriControlCommands(commands: List<String>) {
+        if (!hasPermissions()) {
+            ensurePermissions()
+            Toast.makeText(this, "Grant Bluetooth permissions first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (currentSelectedLampAddress == null) {
+            Toast.makeText(this, "Select a lamp first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        controlService?.sendHoriControl(commands)
     }
 
     override fun onResume() {
