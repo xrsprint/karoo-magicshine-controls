@@ -10,6 +10,8 @@ import androidx.glance.GlanceModifier
 import androidx.glance.appwidget.ExperimentalGlanceRemoteViewsApi
 import androidx.glance.appwidget.GlanceRemoteViews
 import androidx.glance.background
+import androidx.glance.action.clickable
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.color.ColorProvider
 import androidx.glance.layout.Alignment
@@ -59,15 +61,15 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TestBox("OFF", GlanceModifier.fillMaxWidth().defaultWeight())
+            TestBox("OFF", GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriOffAction>()))
             Spacer(GlanceModifier.size(6.dp))
-            TestBox("LOW", GlanceModifier.fillMaxWidth().defaultWeight())
+            TestBox("LOW", GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriLowAction>()))
             Spacer(GlanceModifier.size(6.dp))
-            TestBox("MED", GlanceModifier.fillMaxWidth().defaultWeight())
+            TestBox("MED", GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriMedAction>()))
             Spacer(GlanceModifier.size(6.dp))
-            TestBox("HIGH", GlanceModifier.fillMaxWidth().defaultWeight())
+            TestBox("HIGH", GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriHighAction>()))
             Spacer(GlanceModifier.size(6.dp))
-            TestBox("HIGH BEAM", GlanceModifier.fillMaxWidth().defaultWeight())
+            TestBox("HIGH BEAM", GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriHighBeamAction>()))
         }
     }
 
