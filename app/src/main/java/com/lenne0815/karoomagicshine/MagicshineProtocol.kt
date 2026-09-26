@@ -82,6 +82,15 @@ object MagicshineProtocol {
         }
     }
 
+    // HORI 1300 also exposes the Bluetooth Light Profile control point.
+    // 0x03 sets the light mode (0 = off, 15 = constant on).
+    // 0x04 sets the beam mode (0 = low beam, 1 = high beam).
+    // These commands are sent to 8CE5DD03, not the legacy FFE0 characteristic.
+    fun buildHoriControlRequest(): String = "00"
+    fun buildHoriControlMode(mode: Int): String = "03%02X".format(mode.coerceIn(0, 255))
+    fun buildHoriControlBeam(highBeam: Boolean): String =
+        "04%02X".format(if (highBeam) 1 else 0)
+
     private fun buildHoriM1Frame(model: Int, brightness: Int): String {
         val content = IntArray(14)
         content[0] = 0x01
