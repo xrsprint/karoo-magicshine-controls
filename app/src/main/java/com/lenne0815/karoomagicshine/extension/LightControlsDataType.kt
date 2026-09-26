@@ -94,15 +94,6 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
                         textAlign = TextAlign.Center,
                     ),
                 )
-                Spacer(GlanceModifier.size(5.dp))
-                Text(
-                    text = "tap",
-                    style = TextStyle(
-                        color = ColorProvider(Color(0xFFE0E0E0), Color(0xFFE0E0E0)),
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center,
-                    ),
-                )
             }
         }
     }
