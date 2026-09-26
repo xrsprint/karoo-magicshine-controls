@@ -64,6 +64,7 @@ class MagicshineControlService : Service() {
         const val ACTION_REQUEST_KAROO_BLUETOOTH =
             "com.lenne0815.karoomagicshine.action.REQUEST_KAROO_BLUETOOTH"
         const val ACTION_HORI_MODE = "com.lenne0815.karoomagicshine.action.HORI_MODE"
+        const val ACTION_HORI_OFF = "com.lenne0815.karoomagicshine.action.HORI_OFF"
         const val ACTION_HORI_TOGGLE_POWER = "com.lenne0815.karoomagicshine.action.HORI_TOGGLE_POWER"
         const val EXTRA_HORI_MODE = "hori_mode"
     }
@@ -127,6 +128,7 @@ class MagicshineControlService : Service() {
         when (intent?.action) {
             ACTION_TOGGLE_100 -> handleToggle100()
             ACTION_HORI_MODE -> handleHoriMode(intent.getStringExtra(EXTRA_HORI_MODE))
+            ACTION_HORI_OFF -> handleHoriOff()
             ACTION_HORI_TOGGLE_POWER -> handleHoriTogglePower()
             ACTION_FLASH -> handleRideFlash()
             ACTION_RETRY_CONNECT -> retryDiscoveryAndConnect()
@@ -257,6 +259,13 @@ class MagicshineControlService : Service() {
             delay(UI_RETRY_POLL_MS)
         }
         return controller.hasLiveConnection()
+    }
+
+    private fun handleHoriOff() {
+        cancelRideFlash()
+        cancelPendingWork()
+        SharedLightState.set(this, SharedLightState.OutputTarget.OFF, null)
+        scope.launch { antLightControl.setLightMode(HORI_ANT_DEVICE_ID, "OFF") }
     }
 
     private fun handleHoriTogglePower() {
