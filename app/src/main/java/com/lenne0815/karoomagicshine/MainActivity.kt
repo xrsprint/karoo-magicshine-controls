@@ -280,18 +280,29 @@ class MainActivity : AppCompatActivity() {
                 updateOutputControls()
                 updateBrightnessControls()
 
+                val lowBeamMode = when (currentLowBeamLevel) {
+                    25 -> Hori1300Mode.LOW
+                    50 -> Hori1300Mode.MED
+                    else -> Hori1300Mode.HIGH
+                }
+
                 if (currentConnectionStatus == "connected") {
+                    // The Hori can reset the Low Beam output when changing beam
+                    // mode. Re-apply the user's selected Low Beam level first,
+                    // then switch to High Beam so the normal beam is unchanged.
+                    sendIfPermitted(MagicshineProtocol.buildHori1300Frame(lowBeamMode))
                     sendHoriControlCommands(
                         listOf(MagicshineProtocol.buildHoriControlBeam(true)),
                     )
                 } else {
-                    // If the light is off, mode=15 is required before selecting
-                    // High Beam.
+                    // If the light is off, turn it on first, restore the selected
+                    // Low Beam level, then select High Beam.
                     sendHoriControlCommands(
-                        listOf(
-                            MagicshineProtocol.buildHoriControlMode(15),
-                            MagicshineProtocol.buildHoriControlBeam(true),
-                        ),
+                        listOf(MagicshineProtocol.buildHoriControlMode(15)),
+                    )
+                    sendIfPermitted(MagicshineProtocol.buildHori1300Frame(lowBeamMode))
+                    sendHoriControlCommands(
+                        listOf(MagicshineProtocol.buildHoriControlBeam(true)),
                     )
                 }
             }
