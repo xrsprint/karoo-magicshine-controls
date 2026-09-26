@@ -79,7 +79,7 @@ class MainActivity : Activity() {
             setTextColor(getColor(R.color.sniffer_text))
         }, LinearLayout.LayoutParams(match(), wrap()))
         statusView = TextView(this).apply {
-            text = "Connect alone; the control app and official app must be disconnected."
+            text = "Waiting for scan..."
             textSize = 13f
             setTextColor(getColor(R.color.sniffer_muted))
             setPadding(0, dp(2), 0, dp(6))
@@ -199,7 +199,7 @@ class MainActivity : Activity() {
             visibleLines.addLast(stamped)
             while (visibleLines.size > MAX_VISIBLE_LINES) visibleLines.removeFirst()
             logView.text = visibleLines.joinToString("\n")
-            statusView.text = "Writing Downloads/Magicshine/${recorder.fileName}"
+            statusView.text = message
             scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
         }
     }
