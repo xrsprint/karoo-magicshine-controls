@@ -295,6 +295,18 @@ class MagicshineBleController(
         }
     }
 
+    /**
+     * Send a legacy Hori brightness frame and then switch beam mode as one
+     * serialized BLE transaction so the writes cannot reorder.
+     */
+    fun sendHoriLowBeamThenBeamMode(lowBeamFrame: String, highBeam: Boolean) {
+        scope.launch {
+            operationMutex.withLock {
+                sendHoriLowBeamThenBeamModeInternal(lowBeamFrame, highBeam)
+            }
+        }
+    }
+
     fun startRepeatingCommand(frameHex: String, intervalMs: Long = 1500L): Deferred<Boolean> {
         stopRepeatingCommand()
         val firstWrite = CompletableDeferred<Boolean>()
@@ -489,6 +501,46 @@ class MagicshineBleController(
             Log.w(TAG, "Hori control command failed", t)
             false
         }
+    }
+
+    private suspend fun sendHoriLowBeamThenBeamModeInternal(
+        lowBeamFrame: String,
+        highBeam: Boolean,
+    ): Boolean {
+        val target = awaitTarget() ?: run {
+            Log.w(TAG, "HORI sequence: no target")
+            return false
+        }
+        ensureConnected(target)
+
+        val legacy = checkNotNull(findTargetCharacteristic(target)) {
+            "Light characteristic unavailable"
+        }
+        val control = checkNotNull(findHoriControlCharacteristic(target)) {
+            "Hori control characteristic unavailable"
+        }
+
+        // Keep the whole sequence under operationMutex:
+        // claim control -> restore LOW/MED/HIGH -> enter/leave High Beam.
+        completeGattWrite {
+            control.write(
+                MagicshineProtocol.buildHoriControlRequest().hexToBytes(),
+                WriteType.WITH_RESPONSE,
+            )
+        }
+        delay(60)
+        completeGattWrite {
+            legacy.write(lowBeamFrame.hexToBytes(), WriteType.WITH_RESPONSE)
+        }
+        delay(60)
+        completeGattWrite {
+            control.write(
+                MagicshineProtocol.buildHoriControlBeam(highBeam).hexToBytes(),
+                WriteType.WITH_RESPONSE,
+            )
+        }
+        Log.d(TAG, "HORI SEQUENCE low=$lowBeamFrame beamHigh=$highBeam")
+        return true
     }
 
     private suspend fun findHoriControlCharacteristic(peripheral: Peripheral): RemoteCharacteristic? {
