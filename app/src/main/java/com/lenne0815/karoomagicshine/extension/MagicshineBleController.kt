@@ -296,6 +296,29 @@ class MagicshineBleController(
     }
 
     /**
+     * HORI high-beam one-shot: connect only to the dedicated HORI control
+     * characteristic, send 00 + 04xx, then disconnect the BLE transport.
+     * This deliberately never touches FFE0, telemetry, notifications, or the
+     * legacy brightness/programming path.
+     */
+    fun sendHoriControlOneShot(commands: List<String>, onComplete: (Boolean) -> Unit = {}) {
+        scope.launch {
+            val ok = operationMutex.withLock {
+                val result = sendHoriControlInternal(commands)
+                val target = lastPeripheral
+                delay(120)
+                runCatching { target?.disconnect() }
+                cancelActiveJobs()
+                clearActiveConnectionState(clearCachedPeripheral = true)
+                stopDiscovery()
+                publishConnectionStatus("disconnected")
+                result
+            }
+            onComplete(ok)
+        }
+    }
+
+    /**
      * Send a legacy Hori brightness frame and then switch beam mode as one
      * serialized BLE transaction so the writes cannot reorder.
      */
@@ -385,6 +408,19 @@ class MagicshineBleController(
         publishStatus("connected")
         publishConnectionStatus("connected")
         startConnectedSession(peripheral)
+    }
+
+    private suspend fun ensureHoriControlConnected(peripheral: Peripheral) {
+        if (peripheral.state.value !is ConnectionState.Connected) {
+            publishConnectionStatus("connecting")
+            centralManager.connect(peripheral, connectionOptions)
+            discoveryJob?.cancel()
+            discoveryJob = null
+        }
+        checkNotNull(findHoriControlCharacteristic(peripheral)) {
+            "Hori control characteristic unavailable"
+        }
+        publishConnectionStatus("connected")
     }
 
     private suspend fun cleanupAfterConnectionFailure(peripheral: Peripheral) {
@@ -477,7 +513,7 @@ class MagicshineBleController(
         }
 
         return try {
-            ensureConnected(target)
+            ensureHoriControlConnected(target)
             val control = checkNotNull(findHoriControlCharacteristic(target)) {
                 "Hori control characteristic unavailable"
             }
