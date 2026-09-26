@@ -60,8 +60,11 @@ class MagicshineBleSniffer(
     private val targetService = Uuid.parse("0000FFE1-0000-1000-8000-00805f9b34fb")
     private val targetCharacteristic = Uuid.parse("0000FFE0-0000-1000-8000-00805f9b34fb")
     private val connectionOptions = CentralManager.ConnectionOptions.Direct(
-        timeout = 8.seconds,
-        retry = 0,
+        // The Hori 1300 can take longer than 8 seconds to complete the
+        // Android BLE connection/service setup. Give it more time and one
+        // automatic retry before declaring the connection failed.
+        timeout = 20.seconds,
+        retry = 1,
         retryDelay = 1.seconds,
     )
 
