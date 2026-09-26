@@ -93,6 +93,7 @@ class MainActivity : Activity() {
         root.addView(buttonRow("AB", "AC", "AD"))
         root.addView(buttonRow("POLL A4", "STOP POLL", "OFFICIAL BURST"))
         root.addView(buttonRow("A5 PROFILES", "A9 RUNTIME", "GATT READS"))
+        root.addView(buttonRow("STATE MONITOR", "STOP MONITOR", "MARK CURRENT"))
         root.addView(buttonRow("DRAIN 100%", "STOP POLL", "MARK CURRENT"))
 
         scrollView = ScrollView(this).apply {
@@ -139,6 +140,8 @@ class MainActivity : Activity() {
             "A5 PROFILES" -> sniffer.send(label, MagicshineBleSniffer.QUERY_PROFILES)
             "A9 RUNTIME" -> sniffer.send(label, MagicshineBleSniffer.QUERY_ENDURANCE)
             "GATT READS" -> sniffer.runGattSurvey()
+            "STATE MONITOR" -> sniffer.startStateMonitor()
+            "STOP MONITOR" -> sniffer.stopStateMonitor()
             "DRAIN 100%" -> sniffer.startFullPowerDischarge()
         }
     }
