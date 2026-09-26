@@ -8,6 +8,7 @@ import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.ScrollView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -39,11 +40,13 @@ class AntDirectTestActivity : AppCompatActivity() {
         ant = KarooLightControl(this).also { it.bind() }
         ble = MagicshineBleController(this).also { it.setPreferredAddress(HORI_BLE_ADDRESS) }
 
+        val scroll = ScrollView(this).apply { isFillViewport = true }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(24, 24, 24, 24)
+            setPadding(18, 12, 18, 18)
         }
+        scroll.addView(root)
         root.addView(TextView(this).apply {
             text = "HORI ANT + ONE-SHOT HIGH BEAM TEST\nNORMAL MODES = ANT ONLY"
             textSize = 20f
@@ -73,7 +76,7 @@ class AntDirectTestActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setPadding(8, 22, 8, 8)
         })
-        setContentView(root)
+        setContentView(scroll)
     }
 
     private fun buttonParams() = LinearLayout.LayoutParams(
