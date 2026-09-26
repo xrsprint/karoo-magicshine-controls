@@ -54,7 +54,8 @@ class MagicshineControlService : Service() {
         private const val UI_RETRY_CONNECT_WAIT_MS = 4_000L
         private const val UI_RETRY_POLL_MS = 100L
         private const val RIDE_FLASH_DURATION_MS = 2_000L
-        private const val HORI_ANT_DEVICE_ID = "39269-35-5"\n        private const val HORI_BLE_ADDRESS = "F9:0B:53:A0:34:93"
+        private const val HORI_ANT_DEVICE_ID = "39269-35-5"
+        private const val HORI_BLE_ADDRESS = "F9:0B:53:A0:34:93"
         const val ACTION_TOGGLE_100 = "com.lenne0815.karoomagicshine.action.TOGGLE_100"
         const val ACTION_FLASH = "com.lenne0815.karoomagicshine.action.FLASH"
         const val ACTION_RETRY_CONNECT = "com.lenne0815.karoomagicshine.action.RETRY_CONNECT"
@@ -118,7 +119,8 @@ class MagicshineControlService : Service() {
         RideFieldState.setBatteryStatus(this, "?")
         ensureNotificationChannel()
         registerReceiver(bluetoothStateReceiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
-        antLightControl.bind()\n        controller.setPreferredAddress(HORI_BLE_ADDRESS)
+        antLightControl.bind()
+        controller.setPreferredAddress(HORI_BLE_ADDRESS)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
