@@ -3,7 +3,7 @@ name: Build Debug APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, hori-diagnostic]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
