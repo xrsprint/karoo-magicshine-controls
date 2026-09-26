@@ -420,7 +420,7 @@ class MainActivity : AppCompatActivity() {
         val hasSelection = preferredAddress != null
         chooserGate.visibility = if (hasSelection) android.view.View.GONE else android.view.View.VISIBLE
         controlPanel.visibility = if (hasSelection) android.view.View.VISIBLE else android.view.View.GONE
-        changeLampButton.visibility = android.view.View.GONE
+        changeLampButton.visibility = if (hasSelection) android.view.View.VISIBLE else android.view.View.GONE
         changeLampLabel.text = selectedLamp?.name ?: currentSelectedLampName ?: "Switch lamp"
 
         chooserHintView.text = if (candidates.isEmpty()) {
