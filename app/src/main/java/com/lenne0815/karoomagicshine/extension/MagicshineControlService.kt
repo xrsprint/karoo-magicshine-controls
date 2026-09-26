@@ -54,8 +54,7 @@ class MagicshineControlService : Service() {
         private const val UI_RETRY_CONNECT_WAIT_MS = 4_000L
         private const val UI_RETRY_POLL_MS = 100L
         private const val RIDE_FLASH_DURATION_MS = 2_000L
-        private const val HORI_BLE_ADDRESS = "F9:0B:53:A0:34:93"
-        private const val HORI_ANT_DEVICE_ID = "39269-35-5"
+        private const val HORI_ANT_DEVICE_ID = "39269-35-5"\n        private const val HORI_BLE_ADDRESS = "F9:0B:53:A0:34:93"
         const val ACTION_TOGGLE_100 = "com.lenne0815.karoomagicshine.action.TOGGLE_100"
         const val ACTION_FLASH = "com.lenne0815.karoomagicshine.action.FLASH"
         const val ACTION_RETRY_CONNECT = "com.lenne0815.karoomagicshine.action.RETRY_CONNECT"
@@ -119,8 +118,7 @@ class MagicshineControlService : Service() {
         RideFieldState.setBatteryStatus(this, "?")
         ensureNotificationChannel()
         registerReceiver(bluetoothStateReceiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
-        antLightControl.bind()
-        controller.setPreferredAddress(HORI_BLE_ADDRESS)
+        antLightControl.bind()\n        controller.setPreferredAddress(HORI_BLE_ADDRESS)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -140,9 +138,11 @@ class MagicshineControlService : Service() {
         val wasInvisible = activeFieldViews == 0
         activeFieldViews += 1
         Log.d(TAG, "field visible count=$activeFieldViews")
-        if (wasInvisible && !AppUiState.isActive(this)) {
-            startForegroundForExtension("HORI high beam ready")
-            controller.connectHoriControlOnly()
+        if (wasInvisible && !AppUiState.isActive(this) && extensionReady) {
+            ensureConnectedInternal(forceRestart = false, delayMs = 250)
+        } else if (wasInvisible && !AppUiState.isActive(this)) {
+            pendingAutoConnect = true
+            Log.d(TAG, "field visible before extension ready; deferring connect")
         }
     }
 
@@ -285,7 +285,7 @@ class MagicshineControlService : Service() {
                 Hori1300Mode.LOW -> "STEADY4"
                 Hori1300Mode.MED -> "STEADY3"
                 Hori1300Mode.HIGH -> "STEADY2"
-                Hori1300Mode.HIGH_BEAM -> error("handled separately")
+                Hori1300Mode.HIGH_BEAM -> return
             }
             val level = when (mode) {
                 Hori1300Mode.LOW -> 25
@@ -293,34 +293,26 @@ class MagicshineControlService : Service() {
                 Hori1300Mode.HIGH -> 75
                 Hori1300Mode.HIGH_BEAM -> 100
             }
-            getSharedPreferences("hori_ride", MODE_PRIVATE).edit().putInt("last_normal_level", level).apply()
             SharedLightState.set(this, SharedLightState.OutputTarget.LOW, level)
             scope.launch { antLightControl.setLightMode(HORI_ANT_DEVICE_ID, antMode) }
             return
         }
-
-        val snapshot = SharedLightState.get(this)
         pendingToggleJob = scope.launch {
             if (!controller.hasLiveConnection()) {
                 controller.connectHoriControlOnly()
                 if (!waitForConnectionResult(UI_RETRY_CONNECT_WAIT_MS)) return@launch
             }
+            val snapshot = SharedLightState.get(this@MagicshineControlService)
             if (snapshot.isOn && snapshot.levelPercent == 100) {
                 controller.sendHoriControl(listOf(MagicshineProtocol.buildHoriControlBeam(false)))
-                val previous = getSharedPreferences("hori_ride", MODE_PRIVATE).getInt("last_normal_level", 75)
-                SharedLightState.set(this@MagicshineControlService, SharedLightState.OutputTarget.LOW, previous)
+                SharedLightState.set(this@MagicshineControlService, SharedLightState.OutputTarget.LOW, 75)
             } else {
-                val previous = snapshot.levelPercent?.takeIf { it in setOf(25, 50, 75) } ?: 75
-                getSharedPreferences("hori_ride", MODE_PRIVATE).edit().putInt("last_normal_level", previous).apply()
-                controller.sendHoriControl(
-                    listOf(
-                        MagicshineProtocol.buildHoriControlMode(15),
-                        MagicshineProtocol.buildHoriControlBeam(true),
-                    )
-                )
+                controller.sendHoriControl(listOf(
+                    MagicshineProtocol.buildHoriControlMode(15),
+                    MagicshineProtocol.buildHoriControlBeam(true),
+                ))
                 SharedLightState.set(this@MagicshineControlService, SharedLightState.OutputTarget.LOW, 100)
             }
-            LightFieldState.set(this@MagicshineControlService, LightFieldState.STATUS_CONNECTED)
         }
     }
 
