@@ -63,6 +63,7 @@ class MagicshineControlService : Service() {
         const val ACTION_REQUEST_KAROO_BLUETOOTH =
             "com.lenne0815.karoomagicshine.action.REQUEST_KAROO_BLUETOOTH"
         const val ACTION_HORI_MODE = "com.lenne0815.karoomagicshine.action.HORI_MODE"
+        const val ACTION_HORI_TOGGLE_POWER = "com.lenne0815.karoomagicshine.action.HORI_TOGGLE_POWER"
         const val EXTRA_HORI_MODE = "hori_mode"
     }
 
@@ -124,6 +125,7 @@ class MagicshineControlService : Service() {
         when (intent?.action) {
             ACTION_TOGGLE_100 -> handleToggle100()
             ACTION_HORI_MODE -> handleHoriMode(intent.getStringExtra(EXTRA_HORI_MODE))
+            ACTION_HORI_TOGGLE_POWER -> handleHoriTogglePower()
             ACTION_FLASH -> handleRideFlash()
             ACTION_RETRY_CONNECT -> retryDiscoveryAndConnect()
             ACTION_FIELD_VISIBLE -> markFieldVisible()
@@ -253,6 +255,25 @@ class MagicshineControlService : Service() {
             delay(UI_RETRY_POLL_MS)
         }
         return controller.hasLiveConnection()
+    }
+
+    private fun handleHoriTogglePower() {
+        cancelRideFlash()
+        cancelPendingWork()
+        val snapshot = SharedLightState.get(this)
+        if (snapshot.isOn) {
+            SharedLightState.set(this, SharedLightState.OutputTarget.OFF, null)
+            scope.launch { antLightControl.setLightMode(HORI_ANT_DEVICE_ID, "OFF") }
+        } else {
+            val level = snapshot.lastOnLevelPercent?.takeIf { it in setOf(25, 50, 75) } ?: 25
+            val antMode = when (level) {
+                75 -> "STEADY2"
+                50 -> "STEADY3"
+                else -> "STEADY4"
+            }
+            SharedLightState.set(this, SharedLightState.OutputTarget.LOW, level)
+            scope.launch { antLightControl.setLightMode(HORI_ANT_DEVICE_ID, antMode) }
+        }
     }
 
     private fun handleHoriMode(modeName: String?) {
