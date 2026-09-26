@@ -37,17 +37,18 @@ jobs:
         cache-disabled: true
 
     - name: Test, lint, and build installable APKs
-      run: gradle :app:testDebugUnitTest :app:lintDebug assembleDebug --stacktrace -Pgpr.user=${{ github.actor }} -Pgpr.key=${{ secrets.GPR_KEY || github.token }}
+      run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :magicshine-sniffer:assembleDebug --stacktrace -Pgpr.user=${{ github.actor }} -Pgpr.key=${{ secrets.GPR_KEY || github.token }}
       env:
         GPR_USER: ${{ github.actor }}
         GPR_KEY: ${{ secrets.GPR_KEY || github.token }}
 
-    - name: Upload debug APK
+    - name: Upload debug APKs
       uses: actions/upload-artifact@v6
       with:
-        name: debug-apk
-        path: app/build/outputs/apk/debug/*.apk
-
+        name: debug-apks
+        path: |
+          app/build/outputs/apk/debug/*.apk
+          magicshine-sniffer/build/outputs/apk/debug/*.apk
 
     - name: Publish Karoo release APK
       if: github.ref == 'refs/heads/main'
