@@ -43,7 +43,7 @@ class MainActivity : Activity() {
     private lateinit var scrollView: ScrollView
     private lateinit var deviceRow: LinearLayout
     private lateinit var antControl: KarooLightControl
-    private var antDeviceId: String? = null
+    private var antDeviceId: String? = "39269-35-5"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -96,8 +96,11 @@ class MainActivity : Activity() {
         deviceRow = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(deviceRow, LinearLayout.LayoutParams(match(), wrap()))
 
-        root.addView(buttonRow("ANT DEVICES", "ANT LOW", "ANT MED", "ANT HIGH"))
-        root.addView(buttonRow("ANT OFF", "CONNECT", "DISCONNECT"))
+        root.addView(buttonRow("HB ON", "HB OFF"))
+        root.addView(buttonRow("CONNECT", "DISCONNECT"))
+        root.addView(buttonRow("ANT OFF", "STEADY1", "STEADY2"))
+        root.addView(buttonRow("STEADY3", "STEADY4", "STEADY5"))
+        root.addView(buttonRow("ANT DEVICES"))
         root.addView(buttonRow("MARK CURRENT"))
         root.addView(TextView(this).apply {
             text = "HORI 1300 diagnostic controls"
@@ -147,10 +150,12 @@ class MainActivity : Activity() {
     private fun handleButton(label: String) {
         when (label) {
             "ANT DEVICES" -> queryAntBikeLights()
-            "ANT LOW" -> sendAntCandidate("STEADY5")
-            "ANT MED" -> sendAntCandidate("STEADY2")
-            "ANT HIGH" -> sendAntCandidate("STEADY4")
             "ANT OFF" -> sendAntCandidate("OFF")
+            "STEADY1" -> sendAntCandidate("STEADY1")
+            "STEADY2" -> sendAntCandidate("STEADY2")
+            "STEADY3" -> sendAntCandidate("STEADY3")
+            "STEADY4" -> sendAntCandidate("STEADY4")
+            "STEADY5" -> sendAntCandidate("STEADY5")
             "CONNECT" -> sniffer.scan()
             "DISCONNECT" -> sniffer.disconnect()
             "MARK CURRENT" -> appendLog("========== MARK CURRENT PHYSICAL BATTERY ==========")
