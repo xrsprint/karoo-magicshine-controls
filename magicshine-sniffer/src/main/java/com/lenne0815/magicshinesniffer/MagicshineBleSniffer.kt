@@ -70,6 +70,7 @@ class MagicshineBleSniffer(
 
     @Volatile private var peripheral: Peripheral? = null
     @Volatile private var characteristic: RemoteCharacteristic? = null
+    @Volatile private var scanJob: Job? = null
     @Volatile private var connectJob: Job? = null
     @Volatile private var notificationJob: Job? = null
     @Volatile private var pollJob: Job? = null
@@ -80,10 +81,10 @@ class MagicshineBleSniffer(
     }
 
     fun scan() {
-        if (connectJob?.isActive == true) return
+        if (scanJob?.isActive == true || connectJob?.isActive == true) return
         if (!hasPermissions()) { line("ERROR missing Bluetooth permissions"); return }
         if (bluetoothManager?.adapter?.isEnabled != true) { line("ERROR Bluetooth is off"); return }
-        connectJob = scope.launch {
+        scanJob = scope.launch {
             operationMutex.withLock {
                 discovered.clear()
                 deviceListener(emptyList())
@@ -105,14 +106,16 @@ class MagicshineBleSniffer(
                 if (discovered.isEmpty()) line("ERROR no supported lamp found")
                 else line("FOUND " + discovered.size + " supported lamp(s) — select one above")
             }
-        }.also { job -> job.invokeOnCompletion { if (connectJob === job) connectJob = null } }
+        }.also { job -> job.invokeOnCompletion { if (scanJob === job) scanJob = null } }
     }
 
     fun connect(address: String) {
         val target = discovered[address]
         if (target == null) { line("ERROR device not found; scan again"); return }
-        // Selecting a lamp while the 12-second scan is still running must stop
-        // the scan first; otherwise the old scan job blocks the connection.
+        line("SELECTED " + (target.name ?: address))
+        // Stop only the scan job. Keep the connection job independent so a tap
+        // on a discovered lamp cannot be blocked by scan state.
+        scanJob?.cancel()
         connectJob?.cancel()
         connectJob = scope.launch {
             operationMutex.withLock {
@@ -269,6 +272,7 @@ class MagicshineBleSniffer(
     fun close() {
         pollJob?.cancel()
         notificationJob?.cancel()
+        scanJob?.cancel()
         connectJob?.cancel()
         characteristic = null
         peripheral = null
