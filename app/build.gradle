@@ -13,11 +13,11 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.lenne0815.karoomagicshine"
+        applicationId "com.lenne0815.karoomagicshine.anttest"
         minSdk 26
         targetSdk 34
-        versionCode 44
-        versionName "2.3"
+        versionCode 9001
+        versionName "ANT-ONLY-9001"
     }
 
     buildTypes {
