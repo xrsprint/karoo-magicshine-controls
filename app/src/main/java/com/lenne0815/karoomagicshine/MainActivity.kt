@@ -262,7 +262,7 @@ class MainActivity : AppCompatActivity() {
                 horiHighBeamActive = false
                 selectedOutputTarget = OutputTarget.LOW
                 selectedLevelPercent = lastHoriLowBeamLevelPercent
-                SharedLightState.set(this, OutputTarget.LOW, lastHoriLowBeamLevelPercent)
+                SharedLightState.set(this, SharedLightState.OutputTarget.LOW, lastHoriLowBeamLevelPercent)
                 updateOutputControls()
                 updateBrightnessControls()
                 sendHoriControlCommands(
@@ -285,7 +285,7 @@ class MainActivity : AppCompatActivity() {
                 horiHighBeamActive = true
                 selectedOutputTarget = OutputTarget.LOW
                 selectedLevelPercent = 100
-                SharedLightState.set(this, OutputTarget.LOW, 100)
+                SharedLightState.set(this, SharedLightState.OutputTarget.LOW, 100)
                 updateOutputControls()
                 updateBrightnessControls()
                 // The Hori profile defines 04 01 as the High Beam command.
@@ -309,7 +309,7 @@ class MainActivity : AppCompatActivity() {
         lastHoriLowBeamLevelPercent = level
         selectedOutputTarget = OutputTarget.LOW
         selectedLevelPercent = level
-        SharedLightState.set(this, OutputTarget.LOW, level)
+        SharedLightState.set(this, SharedLightState.OutputTarget.LOW, level)
         updateOutputControls()
         updateBrightnessControls()
         sendHoriControlCommands(
