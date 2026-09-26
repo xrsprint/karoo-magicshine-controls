@@ -23,6 +23,7 @@ import com.lenne0815.karoomagicshine.extension.AppUiState
 import com.lenne0815.karoomagicshine.extension.MagicshineControlService
 import com.lenne0815.karoomagicshine.extension.SharedLightState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -36,9 +37,11 @@ class MainActivity : AppCompatActivity() {
         private const val PREFS_NAME = "magicshine_prefs"
         private const val PREF_SELECTED_LAMP_ADDRESS = "selected_lamp_address"
         private const val PREF_SELECTED_LAMP_NAME = "selected_lamp_name"
+        private const val HORI_ANT_DEVICE_ID = "39269-35-5"
     }
 
     private var controlService: MagicshineControlService? = null
+    private lateinit var antLightControl: KarooLightControl
     private lateinit var batteryView: TextView
     private lateinit var temperatureView: TextView
     private lateinit var changeLampButton: View
@@ -135,6 +138,7 @@ class MainActivity : AppCompatActivity() {
         supportActionBar?.hide()
         setContentView(R.layout.activity_main)
         prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        antLightControl = KarooLightControl(this).also { it.bind() }
 
         changeLampButton = findViewById(R.id.btnChangeLamp)
         changeLampLabel = findViewById(R.id.txtChangeLampLabel)
@@ -240,24 +244,19 @@ class MainActivity : AppCompatActivity() {
             SharedLightState.set(this, SharedLightState.OutputTarget.OFF, null)
             updateOutputControls()
             updateBrightnessControls()
-            sendHoriControlCommands(
-                listOf(MagicshineProtocol.buildHoriControlMode(0)),
-            )
+            horiHighBeamActive = false
+            sendHoriControlCommands(listOf(MagicshineProtocol.buildHoriControlBeam(false)))
+            sendAntMode("OFF")
         }
     }
 
     private fun sendHoriMode(mode: Hori1300Mode) {
-        if (!hasPermissions()) {
-            ensurePermissions()
-            Toast.makeText(this, "Grant Bluetooth permissions first", Toast.LENGTH_SHORT).show()
-            return
-        }
-
         if (mode == Hori1300Mode.HIGH_BEAM) {
-            // Do not send the legacy FFE0 brightness frame here. The Hori's
-            // Bluetooth Light Profile owns High Beam selection, and mixing the
-            // legacy brightness command into this transition can reset the
-            // normal beam to MED.
+            if (!hasPermissions()) {
+                ensurePermissions()
+                Toast.makeText(this, "Grant Bluetooth permissions first", Toast.LENGTH_SHORT).show()
+                return
+            }
             if (horiHighBeamActive) {
                 horiHighBeamActive = false
                 selectedOutputTarget = OutputTarget.LOW
@@ -265,57 +264,67 @@ class MainActivity : AppCompatActivity() {
                 SharedLightState.set(this, SharedLightState.OutputTarget.LOW, lastHoriLowBeamLevelPercent)
                 updateOutputControls()
                 updateBrightnessControls()
-                sendHoriControlCommands(
-                    listOf(MagicshineProtocol.buildHoriControlBeam(false)),
-                )
-                sendIfPermitted(
-                    MagicshineProtocol.buildHori1300Frame(
-                        when (lastHoriLowBeamLevelPercent) {
-                            25 -> Hori1300Mode.LOW
-                            50 -> Hori1300Mode.MED
-                            else -> Hori1300Mode.HIGH
-                        },
-                    ),
-                )
+                sendHoriControlCommands(listOf(MagicshineProtocol.buildHoriControlBeam(false)))
             } else {
-                val currentLowBeamLevel = selectedLevelPercent
+                val currentLevel = selectedLevelPercent
                     ?.takeIf { it in setOf(25, 50, 75) }
                     ?: lastHoriLowBeamLevelPercent
-                lastHoriLowBeamLevelPercent = currentLowBeamLevel
+                lastHoriLowBeamLevelPercent = currentLevel
                 horiHighBeamActive = true
                 selectedOutputTarget = OutputTarget.LOW
                 selectedLevelPercent = 100
                 SharedLightState.set(this, SharedLightState.OutputTarget.LOW, 100)
                 updateOutputControls()
                 updateBrightnessControls()
-                // The Hori profile defines 04 01 as the High Beam command.
-                // Do not precede it with a legacy brightness command.
-                sendHoriControlCommands(
-                    listOf(MagicshineProtocol.buildHoriControlBeam(true)),
-                )
+                sendHoriControlCommands(listOf(MagicshineProtocol.buildHoriControlBeam(true)))
             }
             return
         }
 
-        // Selecting LOW/MED/HIGH always leaves High Beam first, then applies
-        // the requested legacy brightness level.
-        horiHighBeamActive = false
         val level = when (mode) {
             Hori1300Mode.LOW -> 25
             Hori1300Mode.MED -> 50
             Hori1300Mode.HIGH -> 75
             Hori1300Mode.HIGH_BEAM -> 100
         }
+        val antMode = when (mode) {
+            Hori1300Mode.LOW -> "STEADY4"
+            Hori1300Mode.MED -> "STEADY3"
+            Hori1300Mode.HIGH -> "STEADY2"
+            Hori1300Mode.HIGH_BEAM -> error("handled above")
+        }
+
+        val wasHighBeam = horiHighBeamActive
+        horiHighBeamActive = false
         lastHoriLowBeamLevelPercent = level
         selectedOutputTarget = OutputTarget.LOW
         selectedLevelPercent = level
         SharedLightState.set(this, SharedLightState.OutputTarget.LOW, level)
         updateOutputControls()
         updateBrightnessControls()
-        sendHoriControlCommands(
-            listOf(MagicshineProtocol.buildHoriControlBeam(false)),
-        )
-        sendIfPermitted(MagicshineProtocol.buildHori1300Frame(mode))
+
+        // Factory LOW/MED/HIGH are controlled through Karoo's native ANT+ light
+        // service. Only clear the BLE high-beam flag when we are actually leaving
+        // high beam; otherwise normal ANT mode changes need no BLE transaction.
+        if (wasHighBeam) {
+            sendHoriControlCommands(listOf(MagicshineProtocol.buildHoriControlBeam(false)))
+        }
+        sendAntMode(antMode)
+    }
+
+    private fun sendAntMode(modeName: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val ok = antLightControl.setLightMode(HORI_ANT_DEVICE_ID, modeName)
+            if (!ok) {
+                runOnUiThread {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "ANT light command unavailable: $modeName",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
+        }
     }
 
     private fun sendHoriLowBeamThenBeamMode(lowBeamFrame: String, highBeam: Boolean) {
@@ -362,6 +371,7 @@ class MainActivity : AppCompatActivity() {
             AppUiState.setActive(this, false)
         }
         controlService?.unregisterListener(serviceListener)
+        antLightControl.unbind()
         runCatching { unbindService(serviceConnection) }
         if (isFinishing) {
             controlService = null
