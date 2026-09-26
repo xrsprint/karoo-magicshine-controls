@@ -58,6 +58,7 @@ class MagicshineBleSniffer(
     private val operationMutex = Mutex()
     private val analyzer = FrameAnalyzer()
     @Volatile private var stateMonitorJob: Job? = null
+    @Volatile private var rapidHoriCaptureJob: Job? = null
     private val targetService = Uuid.parse("0000FFE1-0000-1000-8000-00805f9b34fb")
     private val targetCharacteristic = Uuid.parse("0000FFE0-0000-1000-8000-00805f9b34fb")
     private val horiService = Uuid.parse("ADB425D4-B1C6-11ED-AFA1-0242AC120002")
@@ -285,6 +286,75 @@ class MagicshineBleSniffer(
         }
     }
 
+    fun startRapidHoriCapture() {
+        stopRapidHoriCapture()
+        stopStateMonitor()
+        rapidHoriCaptureJob = scope.launch {
+            line("========== RAPID HORI CAPTURE START ==========")
+            line("Use FACTORY REMOTE only: LOW -> MED -> HIGH, pausing about 2 seconds at each")
+            var captureChars: List<RemoteCharacteristic> = emptyList()
+            operationMutex.withLock {
+                val target = peripheral
+                if (target?.state?.value !is ConnectionState.Connected) {
+                    line("ERROR RAPID CAPTURE ignored: not connected")
+                } else {
+                    runCatching {
+                        val services = withTimeoutOrNull(5_000L) {
+                            target.services().first { it.isNotEmpty() }
+                        } ?: emptyList()
+                        captureChars = services.flatMap { service ->
+                            service.characteristics.filter {
+                                CharacteristicProperty.READ in it.properties
+                            }
+                        }
+                        line("RAPID CAPTURE watching ${captureChars.size} readable characteristic(s) every 250ms")
+                    }.onFailure { error ->
+                        line("ERROR RAPID CAPTURE DISCOVERY ${error::class.java.simpleName}: ${error.message}")
+                    }
+                }
+            }
+            if (captureChars.isEmpty()) {
+                line("RAPID HORI CAPTURE STOPPED: no readable characteristics")
+                return@launch
+            }
+
+            val previous = mutableMapOf<String, String>()
+            var pass = 0
+            while (true) {
+                operationMutex.withLock {
+                    val target = peripheral
+                    if (target?.state?.value !is ConnectionState.Connected) {
+                        line("RAPID CAPTURE STOPPED: disconnected")
+                        return@withLock
+                    }
+                    captureChars.forEach { char ->
+                        runCatching { char.read() }
+                            .onSuccess { value ->
+                                val uuid = char.uuid.toString()
+                                val hex = value.toHex()
+                                val old = previous.put(uuid, hex)
+                                if (pass == 0 || old != hex) {
+                                    line("RAPID ${if (old == null) "BASE" else "CHANGE"} $uuid ${old?.let { "$it -> " } ?: ""}$hex")
+                                }
+                            }
+                            .onFailure { error ->
+                                if (pass == 0) line("ERROR RAPID READ ${char.uuid} ${error::class.java.simpleName}: ${error.message}")
+                            }
+                    }
+                }
+                pass++
+                delay(250)
+            }
+        }
+    }
+
+    fun stopRapidHoriCapture() {
+        val wasCapturing = rapidHoriCaptureJob?.isActive == true
+        rapidHoriCaptureJob?.cancel()
+        rapidHoriCaptureJob = null
+        if (wasCapturing) line("========== RAPID HORI CAPTURE STOPPED ==========")
+    }
+
     fun startStateMonitor() {
         stopStateMonitor()
         stateMonitorJob = scope.launch {
@@ -397,6 +467,7 @@ class MagicshineBleSniffer(
     fun close() {
         pollJob?.cancel()
         stateMonitorJob?.cancel()
+        rapidHoriCaptureJob?.cancel()
         notificationJob?.cancel()
         scanJob?.cancel()
         connectJob?.cancel()
