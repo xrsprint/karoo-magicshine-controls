@@ -103,9 +103,9 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
             Spacer(GlanceModifier.size(gap))
             HoriButton("MED", if (connected && snapshot.isOn && snapshot.levelPercent == 50) GREEN_COLOR else CARD_COLOR, GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriMedAction>()), textSize)
             Spacer(GlanceModifier.size(gap))
-            HoriButton("HIGH", if (connected && snapshot.isOn && snapshot.levelPercent == 100) GREEN_COLOR else CARD_COLOR, GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriHighAction>()), textSize)
+            HoriButton("HIGH", if (connected && snapshot.isOn && snapshot.levelPercent == 75) GREEN_COLOR else CARD_COLOR, GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriHighAction>()), textSize)
             Spacer(GlanceModifier.size(gap))
-            HoriButton("High Beam", CARD_COLOR, GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriHighBeamAction>()), textSize)
+            HoriButton("HIGH BEAM", if (connected && snapshot.isOn && snapshot.levelPercent == 100) GREEN_COLOR else CARD_COLOR, GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriHighBeamAction>()), textSize)
         }
     }
 
