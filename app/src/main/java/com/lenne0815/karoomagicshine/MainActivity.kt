@@ -237,7 +237,7 @@ class MainActivity : AppCompatActivity() {
             SharedLightState.set(this, SharedLightState.OutputTarget.OFF, null)
             updateOutputControls()
             updateBrightnessControls()
-            sendIfPermitted(MagicshineProtocol.buildPresetFrame(MagicshineModule.MODULE_1, 0))
+            sendIfPermitted(MagicshineProtocol.buildHori1300OffFrame())
         }
     }
 
