@@ -59,6 +59,7 @@ class MagicshineBleSniffer(
     private val analyzer = FrameAnalyzer()
     @Volatile private var stateMonitorJob: Job? = null
     @Volatile private var rapidHoriCaptureJob: Job? = null
+    @Volatile private var allNotifyCaptureJob: Job? = null
     private val targetService = Uuid.parse("0000FFE1-0000-1000-8000-00805f9b34fb")
     private val targetCharacteristic = Uuid.parse("0000FFE0-0000-1000-8000-00805f9b34fb")
     private val horiService = Uuid.parse("ADB425D4-B1C6-11ED-AFA1-0242AC120002")
@@ -286,6 +287,55 @@ class MagicshineBleSniffer(
         }
     }
 
+    fun startAllNotifyCapture() {
+        stopAllNotifyCapture()
+        allNotifyCaptureJob = scope.launch {
+            val jobs = mutableListOf<Job>()
+            operationMutex.withLock {
+                val target = peripheral
+                if (target?.state?.value !is ConnectionState.Connected) {
+                    line("ERROR ALL NOTIFY ignored: not connected")
+                    return@withLock
+                }
+                val services = withTimeoutOrNull(5_000L) {
+                    target.services().first { it.isNotEmpty() }
+                } ?: emptyList()
+                val chars = services.flatMap { it.characteristics }.filter {
+                    CharacteristicProperty.NOTIFY in it.properties ||
+                        CharacteristicProperty.INDICATE in it.properties
+                }
+                line("========== ALL NOTIFY CAPTURE START ==========")
+                line("Subscribing to ${chars.size} NOTIFY/INDICATE characteristic(s)")
+                chars.forEach { ch ->
+                    line("SUBSCRIBE ${ch.uuid} properties=${ch.properties.joinToString("+")}")
+                    jobs += scope.launch {
+                        runCatching {
+                            ch.subscribe().collect { value ->
+                                line("NOTIFY ${ch.uuid} ${value.toHex()}")
+                            }
+                        }.onFailure { e ->
+                            if (allNotifyCaptureJob?.isActive == true) {
+                                line("ERROR SUBSCRIBE ${ch.uuid} ${e::class.java.simpleName}: ${e.message}")
+                            }
+                        }
+                    }
+                }
+            }
+            try {
+                while (true) delay(1000)
+            } finally {
+                jobs.forEach { it.cancel() }
+            }
+        }
+    }
+
+    fun stopAllNotifyCapture() {
+        val active = allNotifyCaptureJob?.isActive == true
+        allNotifyCaptureJob?.cancel()
+        allNotifyCaptureJob = null
+        if (active) line("========== ALL NOTIFY CAPTURE STOPPED ==========")
+    }
+
     fun startRapidHoriCapture() {
         stopRapidHoriCapture()
         stopStateMonitor()
@@ -468,6 +518,7 @@ class MagicshineBleSniffer(
         pollJob?.cancel()
         stateMonitorJob?.cancel()
         rapidHoriCaptureJob?.cancel()
+        allNotifyCaptureJob?.cancel()
         notificationJob?.cancel()
         scanJob?.cancel()
         connectJob?.cancel()
