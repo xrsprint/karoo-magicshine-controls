@@ -71,6 +71,8 @@ class MagicshineBleController(
 
     private val targetService = Uuid.parse("0000FFE1-0000-1000-8000-00805f9b34fb")
     private val targetChar = Uuid.parse("0000FFE0-0000-1000-8000-00805f9b34fb")
+    private val horiService = Uuid.parse("ADB425D4-B1C6-11ED-AFA1-0242AC120002")
+    private val horiControlChar = Uuid.parse("8CE5DD03-0A4D-11E9-AB14-D663BD873D93")
 
     private val connectionOptions by lazy {
         CentralManager.ConnectionOptions.Direct(timeout = 8.seconds, retry = 0, retryDelay = 1.seconds)
@@ -285,6 +287,14 @@ class MagicshineBleController(
         }
     }
 
+    fun sendHoriControl(commands: List<String>) {
+        scope.launch {
+            operationMutex.withLock {
+                sendHoriControlInternal(commands)
+            }
+        }
+    }
+
     fun startRepeatingCommand(frameHex: String, intervalMs: Long = 1500L): Deferred<Boolean> {
         stopRepeatingCommand()
         val firstWrite = CompletableDeferred<Boolean>()
@@ -320,9 +330,7 @@ class MagicshineBleController(
                         if (target?.state?.value is ConnectionState.Connected) {
                             writeFrameWithRetry(
                                 target,
-                                MagicshineProtocol.buildPresetFrame(
-                                    com.lenne0815.karoomagicshine.MagicshineModule.MODULE_1, 0,
-                                ),
+                                MagicshineProtocol.buildHoriControlMode(0),
                             )
                         }
                     },
@@ -442,6 +450,58 @@ class MagicshineBleController(
             }
         }
         return p
+    }
+
+    private suspend fun sendHoriControlInternal(commands: List<String>): Boolean {
+        if (preferredAddress == null) {
+            publishConnectionStatus("no device")
+            publishStatus("searching")
+            return false
+        }
+        val target = awaitTarget() ?: run {
+            publishStatus("searching")
+            publishConnectionStatus("no device")
+            return false
+        }
+
+        return try {
+            ensureConnected(target)
+            val control = checkNotNull(findHoriControlCharacteristic(target)) {
+                "Hori control characteristic unavailable"
+            }
+
+            // Bluetooth Light Profile: request control, then issue the requested command(s).
+            val request = MagicshineProtocol.buildHoriControlRequest()
+            completeGattWrite { control.write(request.hexToBytes(), WriteType.WITH_RESPONSE) }
+            Log.d(TAG, "HORI CTRL TX $request")
+
+            for (command in commands) {
+                delay(60)
+                completeGattWrite { control.write(command.hexToBytes(), WriteType.WITH_RESPONSE) }
+                Log.d(TAG, "HORI CTRL TX $command")
+                delay(80)
+            }
+            true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Exception) {
+            currentCoroutineContext().ensureActive()
+            Log.w(TAG, "Hori control command failed", t)
+            false
+        }
+    }
+
+    private suspend fun findHoriControlCharacteristic(peripheral: Peripheral): RemoteCharacteristic? {
+        val servicesFlow = peripheral.services(listOf(horiService))
+        var service = servicesFlow.value.firstOrNull()
+        if (service == null) {
+            repeat(8) {
+                delay(60)
+                service = servicesFlow.value.firstOrNull()
+                if (service != null) return@repeat
+            }
+        }
+        return service?.characteristics?.firstOrNull { it.uuid == horiControlChar }
     }
 
     private suspend fun writeFrame(peripheral: Peripheral, frameHex: String) {
