@@ -42,11 +42,17 @@ class MainActivity : Activity() {
     private lateinit var logView: TextView
     private lateinit var scrollView: ScrollView
     private lateinit var deviceRow: LinearLayout
+    private lateinit var antControl: KarooLightControl
+    private var antDeviceId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         recorder = FrameRecorder(this)
+        antControl = KarooLightControl(this).also { ctl ->
+            ctl.onServiceReady = { appendLog("ANT native light service READY") }
+            ctl.bind()
+        }
         sniffer = MagicshineBleSniffer(this, ::appendLog, ::showDevices)
         setContentView(buildContentView())
         appendLog("Recorder: Downloads/Magicshine/" + recorder.fileName)
@@ -56,6 +62,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         sniffer.close()
+        antControl.unbind()
         runCatching { karooSystem.disconnect() }
         super.onDestroy()
     }
@@ -89,7 +96,8 @@ class MainActivity : Activity() {
         deviceRow = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(deviceRow, LinearLayout.LayoutParams(match(), wrap()))
 
-        root.addView(buttonRow("ANT DEVICES", "CONNECT", "DISCONNECT"))
+        root.addView(buttonRow("ANT DEVICES", "ANT LOW", "ANT MED", "ANT HIGH"))
+        root.addView(buttonRow("ANT OFF", "CONNECT", "DISCONNECT"))
         root.addView(buttonRow("MARK CURRENT"))
         root.addView(TextView(this).apply {
             text = "HORI 1300 diagnostic controls"
@@ -139,6 +147,10 @@ class MainActivity : Activity() {
     private fun handleButton(label: String) {
         when (label) {
             "ANT DEVICES" -> queryAntBikeLights()
+            "ANT LOW" -> sendAntCandidate("STEADY5")
+            "ANT MED" -> sendAntCandidate("STEADY2")
+            "ANT HIGH" -> sendAntCandidate("STEADY4")
+            "ANT OFF" -> sendAntCandidate("OFF")
             "CONNECT" -> sniffer.scan()
             "DISCONNECT" -> sniffer.disconnect()
             "MARK CURRENT" -> appendLog("========== MARK CURRENT PHYSICAL BATTERY ==========")
@@ -228,10 +240,26 @@ class MainActivity : Activity() {
             appendLog("ANT BIKE LIGHT COUNT=${bikeLights.size}")
             bikeLights.forEach { device ->
                 appendLog("ANT LIGHT id=${device.id} name=${device.name} enabled=${device.enabled} manufacturer=${device.details?.manufacturer}")
+                if (device.name.contains("HORI", ignoreCase = true)) {
+                    antDeviceId = device.id
+                    appendLog("ANT HORI selected id=${device.id}")
+                    antControl.registerConnectionState(device.id)
+                    antControl.registerForLightParameters(device.id)
+                }
                 appendLog("ANT LIGHT types=${device.supportedDataTypes.joinToString(",")}")
             }
             consumerId?.let { karooSystem.removeConsumer(it) }
         }
+    }
+
+    private fun sendAntCandidate(mode: String) {
+        val id = antDeviceId
+        if (id == null) {
+            appendLog("ANT ERROR: press ANT DEVICES first; no HORI device id captured")
+            return
+        }
+        val ok = antControl.setLightMode(id, mode)
+        appendLog("ANT COMMAND mode=$mode id=$id result=$ok")
     }
 
     private fun requestRuntimePermissions() {
