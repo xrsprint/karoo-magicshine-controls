@@ -15,6 +15,16 @@
         android:paddingEnd="8dp"
         android:paddingBottom="8dp">
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:padding="8dp"
+            android:text="HORI ANT TEST 9001 — BLE DISABLED — HIGH BEAM DISABLED"
+            android:textColor="#FFFFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
         <LinearLayout
             android:id="@+id/btnChangeLamp"
             android:layout_width="match_parent"
