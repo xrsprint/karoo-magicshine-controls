@@ -199,7 +199,7 @@ class MainActivity : Activity() {
             visibleLines.addLast(stamped)
             while (visibleLines.size > MAX_VISIBLE_LINES) visibleLines.removeFirst()
             logView.text = visibleLines.joinToString("\n")
-            statusView.text = "Writing ${recorder.file.name}"
+            statusView.text = "Writing Downloads/Magicshine/${recorder.fileName}"
             scrollView.post { scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
         }
     }
