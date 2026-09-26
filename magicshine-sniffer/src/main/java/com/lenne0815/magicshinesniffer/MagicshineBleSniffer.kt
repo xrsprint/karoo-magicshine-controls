@@ -57,6 +57,7 @@ class MagicshineBleSniffer(
     private val bluetoothManager by lazy { appContext.getSystemService(BluetoothManager::class.java) }
     private val operationMutex = Mutex()
     private val analyzer = FrameAnalyzer()
+    @Volatile private var stateMonitorJob: Job? = null
     private val targetService = Uuid.parse("0000FFE1-0000-1000-8000-00805f9b34fb")
     private val targetCharacteristic = Uuid.parse("0000FFE0-0000-1000-8000-00805f9b34fb")
     private val connectionOptions = CentralManager.ConnectionOptions.Direct(
@@ -223,6 +224,34 @@ class MagicshineBleSniffer(
         }
     }
 
+    fun startStateMonitor() {
+        stopStateMonitor()
+        stateMonitorJob = scope.launch {
+            line("STATE MONITOR: reading FFE0 every 500ms")
+            while (true) {
+                operationMutex.withLock {
+                    val target = peripheral
+                    val targetChar = characteristic
+                    if (target?.state?.value !is ConnectionState.Connected || targetChar == null) {
+                        line("ERROR STATE MONITOR ignored: not connected")
+                    } else {
+                        runCatching { targetChar.read() }
+                            .onSuccess { value -> line("STATE FFE0 ${value.toHex()}") }
+                            .onFailure { error -> line("ERROR STATE READ ${error::class.java.simpleName}: ${error.message}") }
+                    }
+                }
+                delay(500)
+            }
+        }
+    }
+
+    fun stopStateMonitor() {
+        val wasMonitoring = stateMonitorJob?.isActive == true
+        stateMonitorJob?.cancel()
+        stateMonitorJob = null
+        if (wasMonitoring) line("STATE MONITOR STOPPED")
+    }
+
     fun startBatteryPolling() {
         stopPolling()
         pollJob = scope.launch {
@@ -271,6 +300,7 @@ class MagicshineBleSniffer(
 
     fun close() {
         pollJob?.cancel()
+        stateMonitorJob?.cancel()
         notificationJob?.cancel()
         scanJob?.cancel()
         connectJob?.cancel()
