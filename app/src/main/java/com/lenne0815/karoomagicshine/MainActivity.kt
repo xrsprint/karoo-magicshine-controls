@@ -220,7 +220,17 @@ class MainActivity : AppCompatActivity() {
     private fun toggleHoriPower() {
         controlService?.stopRepeatingCommand()
         if (selectedOutputTarget == OutputTarget.OFF) {
-            sendHoriMode(Hori1300Mode.LOW)
+            // Restore the last Hori 1300 lighting mode instead of always waking at LOW.
+            // The Hori 1300 itself also has a memory function, so this keeps the app
+            // state aligned with the last mode selected through the app.
+            val lastLevel = SharedLightState.get(this).lastOnLevelPercent ?: 25
+            val lastMode = when (lastLevel) {
+                100 -> Hori1300Mode.HIGH_BEAM
+                75 -> Hori1300Mode.HIGH
+                50 -> Hori1300Mode.MED
+                else -> Hori1300Mode.LOW
+            }
+            sendHoriMode(lastMode)
         } else {
             selectedOutputTarget = OutputTarget.OFF
             selectedLevelPercent = null
