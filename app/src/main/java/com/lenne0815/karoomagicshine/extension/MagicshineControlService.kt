@@ -534,6 +534,11 @@ class MagicshineControlService : Service() {
         cancelRideFlash()
         controller.sendHoriControl(commands)
     }
+
+    fun sendHoriLowBeamThenBeamMode(lowBeamFrame: String, highBeam: Boolean) {
+        cancelRideFlash()
+        controller.sendHoriLowBeamThenBeamMode(lowBeamFrame, highBeam)
+    }
     fun startRepeatingCommand(frameHex: String, intervalMs: Long = 1500L) {
         cancelRideFlash()
         controller.startRepeatingCommand(frameHex, intervalMs)
