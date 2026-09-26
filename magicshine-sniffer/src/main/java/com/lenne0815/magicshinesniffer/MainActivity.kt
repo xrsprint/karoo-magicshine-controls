@@ -151,6 +151,14 @@ class MainActivity : Activity() {
             "GATT READS" -> sniffer.runGattSurvey()
             "STATE MONITOR" -> sniffer.startStateMonitor()
             "STOP MONITOR" -> sniffer.stopStateMonitor()
+            "M1 20" -> sniffer.sendHoriM1Brightness(20)
+            "M1 60" -> sniffer.sendHoriM1Brightness(60)
+            "M1 99" -> sniffer.sendHoriM1Brightness(99)
+            "M1 100" -> sniffer.sendHoriM1Brightness(100)
+            "HB ON" -> sniffer.sendHoriBeam(true)
+            "HB OFF" -> sniffer.sendHoriBeam(false)
+            "MODE ON" -> sniffer.sendHoriMode(15)
+            "MODE OFF" -> sniffer.sendHoriMode(0)
             "DRAIN 100%" -> sniffer.startFullPowerDischarge()
         }
     }
