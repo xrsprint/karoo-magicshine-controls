@@ -13,5 +13,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+            <service android:name=".extension.MagicshineControlService" android:enabled="true" android:exported="false" />
+        <service android:name=".extension.MagicshineKarooExtension" android:enabled="true" android:exported="true">
+            <intent-filter><action android:name="io.hammerhead.karooext.KAROO_EXTENSION" /></intent-filter>
+            <meta-data android:name="io.hammerhead.karooext.EXTENSION_INFO" android:resource="@xml/extension_info" />
+        </service>
+        <receiver android:name=".extension.LightActionReceiver" android:exported="false" />
     </application>
 </manifest>
