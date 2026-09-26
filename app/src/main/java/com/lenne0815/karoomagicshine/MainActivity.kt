@@ -159,14 +159,11 @@ class MainActivity : AppCompatActivity() {
         sosButton = findViewById(R.id.btnSos)
         blitzButton = findViewById(R.id.btnBlitz)
         disconnectButton = findViewById(R.id.btnDisconnect)
-        bindService(
-            Intent(this, MagicshineControlService::class.java),
-            serviceConnection,
-            Context.BIND_AUTO_CREATE or Context.BIND_IMPORTANT,
-        )
-        if (!hasPermissions()) {
-            ensurePermissions()
-        }
+        // ANT isolation build: do not bind or start any Magicshine BLE service.
+        restoreSelectedLamp()
+        currentConnectionStatus = "disconnected"
+        currentDisplayStatus = "ANT ONLY"
+        updateConnectButton()
         lifecycleScope.launch {
             while (true) {
                 refreshUiFromController()
@@ -175,7 +172,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         connectButton.setOnClickListener {
-            connectIfPermitted()
+            Toast.makeText(this, "ANT-only test: Bluetooth disabled", Toast.LENGTH_SHORT).show()
         }
         changeLampButton.setOnClickListener {
             controlService?.stopRepeatingCommand()
@@ -217,7 +214,9 @@ class MainActivity : AppCompatActivity() {
         level25Button.setOnClickListener { sendHoriMode(Hori1300Mode.LOW) }
         level50Button.setOnClickListener { sendHoriMode(Hori1300Mode.MED) }
         level75Button.setOnClickListener { sendHoriMode(Hori1300Mode.HIGH) }
-        level100Button.setOnClickListener { sendHoriMode(Hori1300Mode.HIGH_BEAM) }
+        level100Button.setOnClickListener {
+            Toast.makeText(this, "High beam disabled in ANT-only test", Toast.LENGTH_SHORT).show()
+        }
         disconnectButton.setOnClickListener {
             controlService?.stopRepeatingCommand()
             controlService?.disconnect()
@@ -246,13 +245,15 @@ class MainActivity : AppCompatActivity() {
             updateBrightnessControls()
             val wasHighBeam = horiHighBeamActive
             horiHighBeamActive = false
-            if (wasHighBeam) sendHoriControlCommands(listOf(MagicshineProtocol.buildHoriControlBeam(false)))
             sendAntMode("OFF")
         }
     }
 
     private fun sendHoriMode(mode: Hori1300Mode) {
         if (mode == Hori1300Mode.HIGH_BEAM) {
+            Toast.makeText(this, "High beam disabled in ANT-only test", Toast.LENGTH_SHORT).show()
+            return
+            /*
             if (!hasPermissions()) {
                 ensurePermissions()
                 Toast.makeText(this, "Grant Bluetooth permissions first", Toast.LENGTH_SHORT).show()
@@ -280,6 +281,7 @@ class MainActivity : AppCompatActivity() {
                 sendHoriControlCommands(listOf(MagicshineProtocol.buildHoriControlBeam(true)))
             }
             return
+            */
         }
 
         val level = when (mode) {
@@ -307,9 +309,6 @@ class MainActivity : AppCompatActivity() {
         // Factory LOW/MED/HIGH are controlled through Karoo's native ANT+ light
         // service. Only clear the BLE high-beam flag when we are actually leaving
         // high beam; otherwise normal ANT mode changes need no BLE transaction.
-        if (wasHighBeam) {
-            sendHoriControlCommands(listOf(MagicshineProtocol.buildHoriControlBeam(false)))
-        }
         sendAntMode(antMode)
     }
 
@@ -373,7 +372,7 @@ class MainActivity : AppCompatActivity() {
         }
         controlService?.unregisterListener(serviceListener)
         antLightControl.unbind()
-        runCatching { unbindService(serviceConnection) }
+        // No BLE service is bound in the ANT isolation build.
         if (isFinishing) {
             controlService = null
         }
