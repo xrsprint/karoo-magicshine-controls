@@ -238,7 +238,8 @@ class MainActivity : AppCompatActivity() {
         selectedLevelPercent = when (mode) {
             Hori1300Mode.LOW -> 25
             Hori1300Mode.MED -> 50
-            Hori1300Mode.HIGH, Hori1300Mode.HIGH_BEAM -> 100
+            Hori1300Mode.HIGH -> 75
+            Hori1300Mode.HIGH_BEAM -> 100
         }
         SharedLightState.set(this, SharedLightState.OutputTarget.LOW, selectedLevelPercent)
         updateOutputControls()
