@@ -33,6 +33,7 @@ import kotlin.uuid.Uuid
 class MagicshineBleSniffer(
     context: Context,
     private val listener: (String) -> Unit,
+    private val deviceListener: (List<String>) -> Unit = {},
 ) {
     companion object {
         private const val SCAN_TIMEOUT_MS = 12_000L
@@ -69,21 +70,49 @@ class MagicshineBleSniffer(
     @Volatile private var connectJob: Job? = null
     @Volatile private var notificationJob: Job? = null
     @Volatile private var pollJob: Job? = null
+    private val discovered = linkedMapOf<String, Peripheral>()
 
     fun connect() {
+        scan()
+    }
+
+    fun scan() {
         if (connectJob?.isActive == true) return
-        if (!hasPermissions()) {
-            line("ERROR missing Bluetooth permissions")
-            return
-        }
-        if (bluetoothManager?.adapter?.isEnabled != true) {
-            line("ERROR Bluetooth is off")
-            return
-        }
+        if (!hasPermissions()) { line("ERROR missing Bluetooth permissions"); return }
+        if (bluetoothManager?.adapter?.isEnabled != true) { line("ERROR Bluetooth is off"); return }
         connectJob = scope.launch {
             operationMutex.withLock {
-                runCatching { connectInternal() }
-                    .onFailure { line("ERROR connect ${it::class.java.simpleName}: ${it.message}") }
+                discovered.clear()
+                deviceListener(emptyList())
+                line("SCAN for M2-B0/M1-B0 lamp")
+                withTimeoutOrNull(SCAN_TIMEOUT_MS) {
+                    centralManager.scan().collect { scanResult ->
+                        val name = (scanResult.advertisingData.name ?: scanResult.peripheral.name)
+                            ?.replace("\u0000", "")?.replace("\uFFFD", "")?.trim().orEmpty()
+                        if (name.startsWith("M2-B0", true) || name.startsWith("M2-BO", true) ||
+                            name.startsWith("M1-B0", true) || name.startsWith("M1-BO", true)) {
+                            val address = scanResult.peripheral.address
+                            discovered[address] = scanResult.peripheral
+                            deviceListener(discovered.map { entry ->
+                                entry.key + " | " + (entry.value.name ?: name).replace("\u0000", "").trim()
+                            })
+                        }
+                    }
+                }
+                if (discovered.isEmpty()) line("ERROR no supported lamp found")
+                else line("FOUND " + discovered.size + " supported lamp(s) — select one above")
+            }
+        }.also { job -> job.invokeOnCompletion { if (connectJob === job) connectJob = null } }
+    }
+
+    fun connect(address: String) {
+        val target = discovered[address]
+        if (target == null) { line("ERROR device not found; scan again"); return }
+        if (connectJob?.isActive == true) return
+        connectJob = scope.launch {
+            operationMutex.withLock {
+                runCatching { connectInternal(target) }
+                    .onFailure { line("ERROR connect " + it::class.java.simpleName + ": " + it.message) }
             }
         }.also { job -> job.invokeOnCompletion { if (connectJob === job) connectJob = null } }
     }
@@ -241,40 +270,11 @@ class MagicshineBleSniffer(
         scope.coroutineContext[Job]?.cancel()
     }
 
-    private suspend fun connectInternal() {
-        val existing = peripheral
-        if (existing?.state?.value is ConnectionState.Connected && characteristic != null) {
-            line("CONNECTED already ${existing.name ?: existing.address}")
-            return
-        }
-        line("SCAN for M2-B0/M1-B0 lamp")
-        val result = withTimeoutOrNull(SCAN_TIMEOUT_MS) {
-            centralManager.scan().first { scanResult ->
-                val name = (scanResult.advertisingData.name ?: scanResult.peripheral.name)
-                    ?.replace("\u0000", "")
-                    ?.trim()
-                    .orEmpty()
-                name.startsWith("M2-B0", true) ||
-                    name.startsWith("M2-BO", true) ||
-                    name.startsWith("M1-B0", true) ||
-                    name.startsWith("M1-BO", true)
-            }
-        }
-        if (result == null) {
-            line("ERROR no supported lamp found")
-            return
-        }
-
-        val target = result.peripheral
+    private suspend fun connectInternal(target: Peripheral) {
         peripheral = target
-        val cleanName = (result.advertisingData.name ?: target.name)
-            ?.replace("\u0000", "")
-            ?.replace("\uFFFD", "")
-            ?.trim()
-            .orEmpty()
-        line("FOUND $cleanName ${target.address} rssi=${result.rssi}")
+        line("CONNECTING " + (target.name ?: target.address))
         centralManager.connect(target, connectionOptions)
-        line("GATT CONNECTED ${target.address}")
+        line("GATT CONNECTED " + target.address)
         val targetChar = awaitCharacteristic(target)
         if (targetChar == null) {
             line("ERROR FFE1/FFE0 characteristic missing")
@@ -285,7 +285,7 @@ class MagicshineBleSniffer(
         notificationJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
             runCatching {
                 targetChar.subscribe().collect { frame -> line(analyzer.analyze(frame)) }
-            }.onFailure { line("ERROR notification ${it::class.java.simpleName}: ${it.message}") }
+            }.onFailure { line("ERROR notification " + it::class.java.simpleName + ": " + it.message) }
         }
         delay(150)
         line("READY notifications enabled; use query buttons")
