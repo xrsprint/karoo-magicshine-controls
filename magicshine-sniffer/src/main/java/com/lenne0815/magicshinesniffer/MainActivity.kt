@@ -89,11 +89,6 @@ class MainActivity : Activity() {
         root.addView(deviceRow, LinearLayout.LayoutParams(match(), wrap()))
 
         root.addView(buttonRow("CONNECT", "DISCONNECT", "MARK CURRENT"))
-        root.addView(buttonRow("A1 TEMP", "A4 CANDIDATE", "SUPPORT SWEEP"))
-        root.addView(buttonRow("AB", "AC", "AD"))
-        root.addView(buttonRow("POLL A4", "STOP POLL", "OFFICIAL BURST"))
-        root.addView(buttonRow("A5 PROFILES", "A9 RUNTIME", "GATT READS"))
-        root.addView(buttonRow("STATE MONITOR", "STOP MONITOR", "MARK CURRENT"))
         root.addView(TextView(this).apply {
             text = "HORI 1300 diagnostic controls"
             textSize = 12f
@@ -104,6 +99,11 @@ class MainActivity : Activity() {
         root.addView(buttonRow("M1 20", "M1 60", "M1 99"))
         root.addView(buttonRow("M1 100", "HB ON", "HB OFF"))
         root.addView(buttonRow("MODE ON", "MODE OFF", "DRAIN 100%"))
+        root.addView(buttonRow("A1 TEMP", "A4 CANDIDATE", "SUPPORT SWEEP"))
+        root.addView(buttonRow("AB", "AC", "AD"))
+        root.addView(buttonRow("POLL A4", "STOP POLL", "OFFICIAL BURST"))
+        root.addView(buttonRow("A5 PROFILES", "A9 RUNTIME", "GATT READS"))
+        root.addView(buttonRow("STATE MONITOR", "STOP MONITOR", "MARK CURRENT"))
 
         scrollView = ScrollView(this).apply {
             setBackgroundColor(getColor(R.color.sniffer_panel))
