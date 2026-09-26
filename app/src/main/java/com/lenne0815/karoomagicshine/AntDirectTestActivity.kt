@@ -47,7 +47,7 @@ class AntDirectTestActivity : AppCompatActivity() {
             setPadding(18, 14, 18, 18)
         }
         root.addView(TextView(this).apply {
-            text = "HORI ANT + PERSISTENT HIGH BEAM TEST\nBLE = HIGH BEAM ONLY"
+            text = "HORI FULL HIGH BEAM SEQUENCE TEST\nPERSISTENT BLE + ANT"
             textSize = 16f
             gravity = Gravity.CENTER
             setPadding(6, 6, 6, 10)
@@ -62,7 +62,7 @@ class AntDirectTestActivity : AppCompatActivity() {
         addAnt(root, "OFF", "OFF")
         addAnt(root, "LOW", "STEADY4")
         addAnt(root, "MED", "STEADY3")
-        addAnt(root, "HIGH", "STEADY2")
+        addAnt(root, "HIGH", "STEADY2")\n        addHbTest(root, "HB A — 04 01 ONLY", listOf(MagicshineProtocol.buildHoriControlBeam(true)))\n        addHbTest(root, "HB B — 03 0F + 04 01", listOf(MagicshineProtocol.buildHoriControlMode(15), MagicshineProtocol.buildHoriControlBeam(true)))
         root.addView(Button(this).apply {
             text = "HIGH BEAM"
             textSize = 17f
@@ -70,7 +70,7 @@ class AntDirectTestActivity : AppCompatActivity() {
             setOnClickListener { toggleHighBeam() }
         }, params())
         root.addView(TextView(this).apply {
-            text = "BLE stays connected but accesses only 8CE5DD03. No FFE0, battery, temperature, notifications or telemetry. Test the physical remote while this screen stays open."
+            text = "Compare HB A with HB B after first selecting HIGH. HB B adds control-mode 0x0F before high-beam ON. No FFE0, battery, temperature, notifications or telemetry."
             textSize = 12f
             gravity = Gravity.CENTER
             setPadding(8, 12, 8, 4)
@@ -93,6 +93,24 @@ class AntDirectTestActivity : AppCompatActivity() {
                 lifecycleScope.launch(Dispatchers.IO) {
                     val ok = ant.setLightMode(HORI_ANT_DEVICE_ID, mode)
                     runOnUiThread { status.text = if (ok) "ANT sent: $mode — BLE remains connected" else "ANT unavailable: $mode" }
+                }
+            }
+        }, params())
+    }
+
+    private fun addHbTest(root: LinearLayout, label: String, commands: List<String>) {
+        root.addView(Button(this).apply {
+            text = label
+            textSize = 15f
+            isAllCaps = false
+            setOnClickListener {
+                if (!ble.hasLiveConnection()) {
+                    status.text = "BLE disconnected — reconnecting"
+                    connectBle()
+                } else {
+                    ble.sendHoriControl(commands)
+                    highBeam = true
+                    status.text = "$label sent"
                 }
             }
         }, params())
