@@ -94,7 +94,16 @@ class MainActivity : Activity() {
         root.addView(buttonRow("POLL A4", "STOP POLL", "OFFICIAL BURST"))
         root.addView(buttonRow("A5 PROFILES", "A9 RUNTIME", "GATT READS"))
         root.addView(buttonRow("STATE MONITOR", "STOP MONITOR", "MARK CURRENT"))
-        root.addView(buttonRow("DRAIN 100%", "STOP POLL", "MARK CURRENT"))
+        root.addView(TextView(this).apply {
+            text = "HORI 1300 diagnostic controls"
+            textSize = 12f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(getColor(R.color.sniffer_text))
+            setPadding(0, dp(4), 0, dp(2))
+        }, LinearLayout.LayoutParams(match(), wrap()))
+        root.addView(buttonRow("M1 20", "M1 60", "M1 99"))
+        root.addView(buttonRow("M1 100", "HB ON", "HB OFF"))
+        root.addView(buttonRow("MODE ON", "MODE OFF", "DRAIN 100%"))
 
         scrollView = ScrollView(this).apply {
             setBackgroundColor(getColor(R.color.sniffer_panel))
