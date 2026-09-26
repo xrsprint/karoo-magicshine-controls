@@ -244,8 +244,9 @@ class MainActivity : AppCompatActivity() {
             SharedLightState.set(this, SharedLightState.OutputTarget.OFF, null)
             updateOutputControls()
             updateBrightnessControls()
+            val wasHighBeam = horiHighBeamActive
             horiHighBeamActive = false
-            sendHoriControlCommands(listOf(MagicshineProtocol.buildHoriControlBeam(false)))
+            if (wasHighBeam) sendHoriControlCommands(listOf(MagicshineProtocol.buildHoriControlBeam(false)))
             sendAntMode("OFF")
         }
     }
