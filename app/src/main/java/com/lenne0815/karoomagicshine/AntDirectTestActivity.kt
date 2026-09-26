@@ -50,7 +50,7 @@ class AntDirectTestActivity : AppCompatActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(18, 14, 18, 18)
+            setPadding(6, 6, 6, 6)
         }
         root.addView(TextView(this).apply {
             text = "HORI 1300 PRO"
@@ -78,7 +78,7 @@ class AntDirectTestActivity : AppCompatActivity() {
         addMode(root, "HIGH", "STEADY2", "HIGH")
         root.addView(Button(this).apply {
             text = "HIGH BEAM"
-            textSize = 18f
+            textSize = 24f
             isAllCaps = false
             setOnClickListener { toggleHighBeam() }
         }, params())
@@ -95,7 +95,7 @@ class AntDirectTestActivity : AppCompatActivity() {
     private fun addMode(root: LinearLayout, label: String, antMode: String, localMode: String) {
         root.addView(Button(this).apply {
             text = label
-            textSize = 18f
+            textSize = 24f
             isAllCaps = false
             setOnClickListener {
                 lifecycleScope.launch(Dispatchers.IO) {
