@@ -159,6 +159,28 @@ class MagicshineBleSniffer(
      * in this project, rather than the newer experimental shifted layout.
      * The value is decimal 0..100 and every exact frame is logged.
      */
+    fun sendHoriRawBrightness(raw: Int) {
+        val value = raw.coerceIn(0, 255)
+        val content = IntArray(14)
+        content[0] = 0x01
+        content[4] = 0x01
+        content[5] = 0x01
+        content[6] = value
+        content[13] = 0xBB
+        val frame = IntArray(20)
+        frame[0] = 0xDE
+        frame[1] = 0x14
+        frame[2] = 0xA2
+        frame[3] = 0x01
+        for (i in content.indices) frame[4 + i] = content[i]
+        var checksum = frame[1]
+        for (i in 2 until frame.size - 2) checksum = checksum xor frame[i]
+        frame[frame.size - 2] = checksum and 0xFF
+        frame[frame.size - 1] = 0xED
+        val hex = frame.joinToString("") { "%02X".format(it) }
+        send("HORI RAW 0x%02X (%d)".format(value, value), hex)
+    }
+
     fun sendHoriM1Brightness(percent: Int) {
         val value = percent.coerceIn(0, 100)
         val checksum = value xor 0x5C
