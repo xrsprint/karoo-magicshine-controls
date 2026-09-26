@@ -13,6 +13,7 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.Toast
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -39,14 +40,15 @@ class MainActivity : Activity() {
     private lateinit var statusView: TextView
     private lateinit var logView: TextView
     private lateinit var scrollView: ScrollView
+    private lateinit var deviceRow: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         recorder = FrameRecorder(this)
-        sniffer = MagicshineBleSniffer(this, ::appendLog)
+        sniffer = MagicshineBleSniffer(this, ::appendLog, ::showDevices)
         setContentView(buildContentView())
-        appendLog("Recorder: ${recorder.file.absolutePath}")
+        appendLog("Recorder: Downloads/Magicshine/" + recorder.fileName)
         connectKarooSystem()
         requestRuntimePermissions()
     }
@@ -83,6 +85,8 @@ class MainActivity : Activity() {
             setPadding(0, dp(2), 0, dp(6))
         }
         root.addView(statusView, LinearLayout.LayoutParams(match(), wrap()))
+        deviceRow = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(deviceRow, LinearLayout.LayoutParams(match(), wrap()))
 
         root.addView(buttonRow("CONNECT", "DISCONNECT", "MARK CURRENT"))
         root.addView(buttonRow("A1 TEMP", "A4 CANDIDATE", "SUPPORT SWEEP"))
@@ -120,7 +124,7 @@ class MainActivity : Activity() {
 
     private fun handleButton(label: String) {
         when (label) {
-            "CONNECT" -> sniffer.connect()
+            "CONNECT" -> sniffer.scan()
             "DISCONNECT" -> sniffer.disconnect()
             "MARK CURRENT" -> appendLog("========== MARK CURRENT PHYSICAL BATTERY ==========")
             "A1 TEMP" -> sniffer.send(label, MagicshineBleSniffer.QUERY_TEMPERATURE)
@@ -136,6 +140,31 @@ class MainActivity : Activity() {
             "A9 RUNTIME" -> sniffer.send(label, MagicshineBleSniffer.QUERY_ENDURANCE)
             "GATT READS" -> sniffer.runGattSurvey()
             "DRAIN 100%" -> sniffer.startFullPowerDischarge()
+        }
+    }
+
+    private fun showDevices(devices: List<String>) {
+        mainHandler.post {
+            deviceRow.removeAllViews()
+            if (devices.isEmpty()) return@post
+            val title = TextView(this).apply {
+                text = "Select lamp to connect:"
+                textSize = 12f
+                setTextColor(getColor(R.color.sniffer_muted))
+            }
+            deviceRow.addView(title)
+            devices.forEach { entry ->
+                val address = entry.substringBefore(" | ")
+                val button = Button(this).apply {
+                    text = entry
+                    textSize = 10f
+                    setOnClickListener {
+                        sniffer.connect(address)
+                        deviceRow.removeAllViews()
+                    }
+                }
+                deviceRow.addView(button, LinearLayout.LayoutParams(match(), dp(44)))
+            }
         }
     }
 
