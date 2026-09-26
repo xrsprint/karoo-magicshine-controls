@@ -12,9 +12,7 @@ class ToggleLightAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters,
     ) {
-        val action = if (LightFieldState.get(context) == LightFieldState.STATUS_CONNECTED) {
-            MagicshineControlService.ACTION_TOGGLE_100
-        } else {
+        val action = MagicshineControlService.ACTION_HORI_TOGGLE_POWER else {
             MagicshineControlService.ACTION_RETRY_CONNECT
         }
         context.startService(
