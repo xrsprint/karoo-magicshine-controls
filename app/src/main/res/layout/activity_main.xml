@@ -19,7 +19,7 @@
             android:id="@+id/btnChangeLamp"
             android:layout_width="match_parent"
             android:layout_height="42dp"
-            android:visibility="gone"
+            android:visibility="visible"
             android:background="@drawable/bg_lamp_switch"
             android:clickable="true"
             android:focusable="true"
