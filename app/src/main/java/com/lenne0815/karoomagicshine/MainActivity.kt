@@ -194,24 +194,18 @@ class MainActivity : AppCompatActivity() {
         disconnectButton.visibility = View.GONE
 
         // Hori 1300 manual controls: five full-width bars stacked vertically.
-        // The screenshot's manual control page is the Activity UI, not the ride-field
-        // DataType, so build the five large controls here as well.
-        val controlRow = offButton.parent as? LinearLayout
-        val levelRow = level25Button.parent as? LinearLayout
-        if (controlRow != null && levelRow != null && controlRow !== levelRow) {
-            controlRow.orientation = LinearLayout.VERTICAL
-            controlRow.gravity = android.view.Gravity.CENTER_HORIZONTAL
+        // CONNECT and ON/OFF are already arranged side-by-side in the XML.
+        // The four mode buttons occupy the dedicated vertical mode container.
+        val modeContainer = level25Button.parent as? LinearLayout
+        if (modeContainer != null) {
+            modeContainer.orientation = LinearLayout.VERTICAL
+            modeContainer.gravity = android.view.Gravity.CENTER_HORIZONTAL
 
-            val buttons = listOf(offButton, level25Button, level50Button, level75Button, level100Button)
-            listOf(level25Button, level50Button, level75Button, level100Button).forEach { button ->
-                levelRow.removeView(button)
-                controlRow.addView(button)
-            }
-
+            val buttons = listOf(level25Button, level50Button, level75Button, level100Button)
             buttons.forEachIndexed { index, button ->
                 (button.layoutParams as? LinearLayout.LayoutParams)?.apply {
                     width = LinearLayout.LayoutParams.MATCH_PARENT
-                    height = dpToPx(60)
+                    height = dpToPx(56)
                     weight = 0f
                     leftMargin = 0
                     rightMargin = 0
@@ -220,7 +214,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 button.layoutParams = button.layoutParams
             }
-            levelRow.visibility = View.GONE
         }
 
         offButton.setOnClickListener { toggleHoriPower() }
