@@ -159,8 +159,9 @@ class MainActivity : Activity() {
                     text = entry
                     textSize = 10f
                     setOnClickListener {
+                        button.isEnabled = false
+                        button.text = "CONNECTING… " + entry
                         sniffer.connect(address)
-                        deviceRow.removeAllViews()
                     }
                 }
                 deviceRow.addView(button, LinearLayout.LayoutParams(match(), dp(44)))
