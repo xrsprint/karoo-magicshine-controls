@@ -20,10 +20,15 @@ class AntDirectTestActivity : AppCompatActivity() {
     companion object {
         private const val HORI_ANT_DEVICE_ID = "39269-35-5"
         private const val HORI_BLE_ADDRESS = "F9:0B:53:A0:34:93"
+        private const val PREFS = "hori_controller"
+        private const val LAST_MODE = "last_mode"
     }
+
     private lateinit var ant: KarooLightControl
     private lateinit var ble: MagicshineBleController
     private lateinit var status: TextView
+    private lateinit var modeStatus: TextView
+    private var normalMode = "HIGH"
     private var highBeam = false
 
     private val permissionLauncher = registerForActivityResult(
@@ -35,10 +40,11 @@ class AntDirectTestActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         supportActionBar?.hide()
+        normalMode = getSharedPreferences(PREFS, MODE_PRIVATE).getString(LAST_MODE, "HIGH") ?: "HIGH"
         ant = KarooLightControl(this).also { it.bind() }
         ble = MagicshineBleController(
             this,
-            onConnectionStatus = { s -> runOnUiThread { status.text = "BLE: $s" } }
+            onConnectionStatus = { s -> runOnUiThread { status.text = "High beam BLE: " + s.uppercase() } }
         ).also { it.setPreferredAddress(HORI_BLE_ADDRESS) }
 
         val root = LinearLayout(this).apply {
@@ -47,95 +53,106 @@ class AntDirectTestActivity : AppCompatActivity() {
             setPadding(18, 14, 18, 18)
         }
         root.addView(TextView(this).apply {
-            text = "HORI FULL HIGH BEAM SEQUENCE TEST\nPERSISTENT BLE + ANT"
-            textSize = 16f
+            text = "HORI 1300 PRO"
+            textSize = 21f
             gravity = Gravity.CENTER
-            setPadding(6, 6, 6, 10)
+            setPadding(6, 6, 6, 4)
         })
+        modeStatus = TextView(this).apply {
+            textSize = 17f
+            gravity = Gravity.CENTER
+            setPadding(6, 0, 6, 4)
+        }
+        root.addView(modeStatus)
         status = TextView(this).apply {
-            text = "Starting…"
-            textSize = 14f
+            text = "High beam BLE: starting"
+            textSize = 12f
             gravity = Gravity.CENTER
             setPadding(6, 0, 6, 10)
         }
         root.addView(status)
-        addAnt(root, "OFF", "OFF")
-        addAnt(root, "LOW", "STEADY4")
-        addAnt(root, "MED", "STEADY3")
-        addAnt(root, "HIGH", "STEADY2")
-        addHbTest(root, "HB A - 04 01 ONLY", listOf(MagicshineProtocol.buildHoriControlBeam(true)))
-        addHbTest(root, "HB B - 03 0F + 04 01", listOf(MagicshineProtocol.buildHoriControlMode(15), MagicshineProtocol.buildHoriControlBeam(true)))
+
+        addMode(root, "OFF", "OFF", "OFF")
+        addMode(root, "LOW", "STEADY4", "LOW")
+        addMode(root, "MED", "STEADY3", "MED")
+        addMode(root, "HIGH", "STEADY2", "HIGH")
         root.addView(Button(this).apply {
             text = "HIGH BEAM"
-            textSize = 17f
+            textSize = 18f
             isAllCaps = false
             setOnClickListener { toggleHighBeam() }
         }, params())
-        root.addView(TextView(this).apply {
-            text = "Compare HB A with HB B after first selecting HIGH. HB B adds control-mode 0x0F before high-beam ON. No FFE0, battery, temperature, notifications or telemetry."
-            textSize = 12f
-            gravity = Gravity.CENTER
-            setPadding(8, 12, 8, 4)
-        })
-        setContentView(root)
 
+        setContentView(root)
+        updateModeStatus()
         if (hasBlePermissions()) connectBle() else requestBlePermissions()
     }
 
     private fun params() = LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.MATCH_PARENT, 78
-    ).apply { bottomMargin = 8 }
+        LinearLayout.LayoutParams.MATCH_PARENT, 88
+    ).apply { bottomMargin = 9 }
 
-    private fun addAnt(root: LinearLayout, label: String, mode: String) {
+    private fun addMode(root: LinearLayout, label: String, antMode: String, localMode: String) {
         root.addView(Button(this).apply {
             text = label
-            textSize = 17f
+            textSize = 18f
             isAllCaps = false
             setOnClickListener {
                 lifecycleScope.launch(Dispatchers.IO) {
-                    val ok = ant.setLightMode(HORI_ANT_DEVICE_ID, mode)
-                    runOnUiThread { status.text = if (ok) "ANT sent: $mode — BLE remains connected" else "ANT unavailable: $mode" }
+                    val ok = ant.setLightMode(HORI_ANT_DEVICE_ID, antMode)
+                    if (ok) {
+                        if (localMode != "OFF") {
+                            normalMode = localMode
+                            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(LAST_MODE, normalMode).apply()
+                        }
+                        highBeam = false
+                    }
+                    runOnUiThread {
+                        updateModeStatus(if (ok) null else "ANT unavailable")
+                    }
                 }
             }
         }, params())
-    }
-
-    private fun addHbTest(root: LinearLayout, label: String, commands: List<String>) {
-        root.addView(Button(this).apply {
-            text = label
-            textSize = 15f
-            isAllCaps = false
-            setOnClickListener {
-                if (!ble.hasLiveConnection()) {
-                    status.text = "BLE disconnected — reconnecting"
-                    connectBle()
-                } else {
-                    ble.sendHoriControl(commands)
-                    highBeam = true
-                    status.text = "$label sent"
-                }
-            }
-        }, params())
-    }
-
-    private fun connectBle() {
-        status.text = "BLE: connecting control-only…"
-        ble.startDiscovery(forceRestart = true)
-        ble.connectHoriControlOnly { ok ->
-            runOnUiThread { status.text = if (ok) "BLE: CONNECTED — high beam ready" else "BLE: connection failed" }
-        }
     }
 
     private fun toggleHighBeam() {
         if (!ble.hasLiveConnection()) {
-            status.text = "BLE disconnected — reconnecting"
+            status.text = "High beam BLE: reconnecting"
             connectBle()
             return
         }
-        val requested = !highBeam
-        ble.sendHoriControl(listOf(MagicshineProtocol.buildHoriControlBeam(requested)))
-        highBeam = requested
-        status.text = if (requested) "HIGH BEAM ON" else "HIGH BEAM OFF"
+        if (!highBeam) {
+            // Proven full-output sequence: claim constant-on mode, then enable high beam.
+            ble.sendHoriControl(
+                listOf(
+                    MagicshineProtocol.buildHoriControlMode(15),
+                    MagicshineProtocol.buildHoriControlBeam(true),
+                )
+            )
+            highBeam = true
+        } else {
+            ble.sendHoriControl(listOf(MagicshineProtocol.buildHoriControlBeam(false)))
+            highBeam = false
+        }
+        updateModeStatus()
+    }
+
+    private fun updateModeStatus(error: String? = null) {
+        modeStatus.text = when {
+            error != null -> error
+            highBeam -> "Mode: HIGH BEAM"
+            else -> "Mode: $normalMode"
+        }
+    }
+
+    private fun connectBle() {
+        status.text = "High beam BLE: connecting"
+        ble.startDiscovery(forceRestart = true)
+        ble.connectHoriControlOnly { ok ->
+            runOnUiThread {
+                status.text = if (ok) "High beam BLE: READY" else "High beam BLE: connection failed"
+            }
+        }
     }
 
     private fun hasBlePermissions(): Boolean {
