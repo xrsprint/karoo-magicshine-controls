@@ -62,7 +62,9 @@ class AntDirectTestActivity : AppCompatActivity() {
         addAnt(root, "OFF", "OFF")
         addAnt(root, "LOW", "STEADY4")
         addAnt(root, "MED", "STEADY3")
-        addAnt(root, "HIGH", "STEADY2")\n        addHbTest(root, "HB A — 04 01 ONLY", listOf(MagicshineProtocol.buildHoriControlBeam(true)))\n        addHbTest(root, "HB B — 03 0F + 04 01", listOf(MagicshineProtocol.buildHoriControlMode(15), MagicshineProtocol.buildHoriControlBeam(true)))
+        addAnt(root, "HIGH", "STEADY2")
+        addHbTest(root, "HB A - 04 01 ONLY", listOf(MagicshineProtocol.buildHoriControlBeam(true)))
+        addHbTest(root, "HB B - 03 0F + 04 01", listOf(MagicshineProtocol.buildHoriControlMode(15), MagicshineProtocol.buildHoriControlBeam(true)))
         root.addView(Button(this).apply {
             text = "HIGH BEAM"
             textSize = 17f
