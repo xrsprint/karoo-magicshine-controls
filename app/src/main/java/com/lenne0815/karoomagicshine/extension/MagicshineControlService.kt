@@ -1,6 +1,7 @@
 package com.lenne0815.karoomagicshine.extension
 
 import com.lenne0815.karoomagicshine.Hori1300Mode
+import com.lenne0815.karoomagicshine.KarooLightControl
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -53,6 +54,7 @@ class MagicshineControlService : Service() {
         private const val UI_RETRY_CONNECT_WAIT_MS = 4_000L
         private const val UI_RETRY_POLL_MS = 100L
         private const val RIDE_FLASH_DURATION_MS = 2_000L
+        private const val HORI_ANT_DEVICE_ID = "39269-35-5"
         const val ACTION_TOGGLE_100 = "com.lenne0815.karoomagicshine.action.TOGGLE_100"
         const val ACTION_FLASH = "com.lenne0815.karoomagicshine.action.FLASH"
         const val ACTION_RETRY_CONNECT = "com.lenne0815.karoomagicshine.action.RETRY_CONNECT"
@@ -77,6 +79,8 @@ class MagicshineControlService : Service() {
     @Volatile private var extensionReady: Boolean = false
     @Volatile private var pendingAutoConnect: Boolean = false
     @Volatile private var foregroundHeld: Boolean = false
+
+    private val antLightControl by lazy { KarooLightControl(applicationContext) }
 
     private val controller by lazy {
         MagicshineBleController(
@@ -113,6 +117,7 @@ class MagicshineControlService : Service() {
         RideFieldState.setBatteryStatus(this, "?")
         ensureNotificationChannel()
         registerReceiver(bluetoothStateReceiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
+        antLightControl.bind()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -254,28 +259,39 @@ class MagicshineControlService : Service() {
         cancelRideFlash()
         cancelPendingWork()
         val mode = runCatching { Hori1300Mode.valueOf(modeName ?: "") }.getOrNull() ?: return
-        if (controller.currentPreferredAddress() == null) {
-            LightFieldState.set(this, LightFieldState.STATUS_NO_DEVICE)
-            return
-        }
-        if (!controller.isBluetoothEnabled()) {
-            LightFieldState.set(this, LightFieldState.STATUS_DISCONNECTED)
-            return
-        }
-        pendingToggleJob = scope.launch {
-            if (!controller.hasLiveConnection() && !controller.hasConnectInFlight()) {
-                controller.connect()
+
+        // Ride-screen LOW/MED/HIGH must use the same native ANT+ path proven by
+        // the diagnostic. Never send an FFE0/A2 brightness frame for these modes.
+        if (mode != Hori1300Mode.HIGH_BEAM) {
+            val antMode = when (mode) {
+                Hori1300Mode.LOW -> "STEADY4"
+                Hori1300Mode.MED -> "STEADY3"
+                Hori1300Mode.HIGH -> "STEADY2"
+                Hori1300Mode.HIGH_BEAM -> error("handled separately")
             }
-            if (!waitForConnectionResult(UI_RETRY_CONNECT_WAIT_MS)) return@launch
             val level = when (mode) {
                 Hori1300Mode.LOW -> 25
                 Hori1300Mode.MED -> 50
-                Hori1300Mode.HIGH,
+                Hori1300Mode.HIGH -> 75
                 Hori1300Mode.HIGH_BEAM -> 100
             }
-            SharedLightState.set(this@MagicshineControlService, SharedLightState.OutputTarget.LOW, level)
-            LightFieldState.set(this@MagicshineControlService, LightFieldState.STATUS_CONNECTED)
-            controller.send(MagicshineProtocol.buildHori1300Frame(mode))
+            SharedLightState.set(this, SharedLightState.OutputTarget.LOW, level)
+            scope.launch {
+                antLightControl.setLightMode(HORI_ANT_DEVICE_ID, antMode)
+            }
+            return
+        }
+
+        // HIGH BEAM is the only HORI mode here that may use Bluetooth.
+        if (controller.currentPreferredAddress() == null || !controller.isBluetoothEnabled()) {
+            LightFieldState.set(this, LightFieldState.STATUS_NO_DEVICE)
+            return
+        }
+        pendingToggleJob = scope.launch {
+            if (!controller.hasLiveConnection() && !controller.hasConnectInFlight()) controller.connect()
+            if (!waitForConnectionResult(UI_RETRY_CONNECT_WAIT_MS)) return@launch
+            SharedLightState.set(this@MagicshineControlService, SharedLightState.OutputTarget.LOW, 100)
+            controller.sendHoriControl(listOf(MagicshineProtocol.buildHoriControlBeam(true)))
         }
     }
 
@@ -556,6 +572,7 @@ class MagicshineControlService : Service() {
     fun clearStalePublishedConnectionState() = controller.clearStalePublishedConnectionState()
 
     override fun onDestroy() {
+        antLightControl.unbind()
         runCatching { unregisterReceiver(bluetoothStateReceiver) }
         cancelRideFlash()
         cancelPendingWork()
