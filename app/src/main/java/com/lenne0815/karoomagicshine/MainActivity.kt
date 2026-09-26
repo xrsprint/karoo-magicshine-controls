@@ -68,6 +68,7 @@ class MainActivity : AppCompatActivity() {
     private var selectedLevelPercent: Int? = null
     // Remember the last Low Beam brightness so HIGH BEAM can toggle back to it.
     private var lastHoriLowBeamLevelPercent: Int = 25
+    private var horiHighBeamActive: Boolean = false
     private var currentSelectedLampAddress: String? = null
     private var currentSelectedLampName: String? = null
     private var lastRenderedCandidateSignature: String = ""
@@ -246,88 +247,75 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sendHoriMode(mode: Hori1300Mode) {
-        controlService?.stopRepeatingCommand()
-        selectedModule = MagicshineModule.MODULE_1
+        if (!hasPermissions()) {
+            ensurePermissions()
+            Toast.makeText(this, "Grant Bluetooth permissions first", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         if (mode == Hori1300Mode.HIGH_BEAM) {
-            val wasHighBeam = selectedOutputTarget != OutputTarget.OFF && selectedLevelPercent == 100
-
-            if (wasHighBeam) {
-                // HIGH BEAM is a toggle. Do not send mode=15 again because that
-                // resets the light's output instead of simply leaving High Beam.
+            // Do not send the legacy FFE0 brightness frame here. The Hori's
+            // Bluetooth Light Profile owns High Beam selection, and mixing the
+            // legacy brightness command into this transition can reset the
+            // normal beam to MED.
+            if (horiHighBeamActive) {
+                horiHighBeamActive = false
                 selectedOutputTarget = OutputTarget.LOW
                 selectedLevelPercent = lastHoriLowBeamLevelPercent
-                SharedLightState.set(
-                    this,
-                    SharedLightState.OutputTarget.LOW,
-                    lastHoriLowBeamLevelPercent,
-                )
+                SharedLightState.set(this, OutputTarget.LOW, lastHoriLowBeamLevelPercent)
                 updateOutputControls()
                 updateBrightnessControls()
                 sendHoriControlCommands(
                     listOf(MagicshineProtocol.buildHoriControlBeam(false)),
                 )
+                sendIfPermitted(
+                    MagicshineProtocol.buildHori1300Frame(
+                        when (lastHoriLowBeamLevelPercent) {
+                            25 -> Hori1300Mode.LOW
+                            50 -> Hori1300Mode.MED
+                            else -> Hori1300Mode.HIGH
+                        },
+                    ),
+                )
             } else {
-                // While already on in Low Beam, only change the beam mode. This
-                // preserves the current Low Beam brightness instead of dimming it.
                 val currentLowBeamLevel = selectedLevelPercent
                     ?.takeIf { it in setOf(25, 50, 75) }
                     ?: lastHoriLowBeamLevelPercent
                 lastHoriLowBeamLevelPercent = currentLowBeamLevel
+                horiHighBeamActive = true
                 selectedOutputTarget = OutputTarget.LOW
                 selectedLevelPercent = 100
-                SharedLightState.set(this, SharedLightState.OutputTarget.LOW, 100)
+                SharedLightState.set(this, OutputTarget.LOW, 100)
                 updateOutputControls()
                 updateBrightnessControls()
-
-                val lowBeamMode = when (currentLowBeamLevel) {
-                    25 -> Hori1300Mode.LOW
-                    50 -> Hori1300Mode.MED
-                    else -> Hori1300Mode.HIGH
-                }
-
-                if (currentConnectionStatus == "connected") {
-                    // These writes must be one serialized BLE transaction.
-                    // Sending the two writes through separate coroutines can
-                    // let the beam-mode write happen before the brightness
-                    // frame, which makes the Hori fall back to MED.
-                    sendHoriLowBeamThenBeamMode(
-                        MagicshineProtocol.buildHori1300Frame(lowBeamMode),
-                        highBeam = true,
-                    )
-                } else {
-                    // If the light is off, turn it on first. The restore/beam
-                    // transition itself is still serialized so its write order
-                    // cannot be reversed.
-                    sendHoriControlCommands(
-                        listOf(MagicshineProtocol.buildHoriControlMode(15)),
-                    )
-                    sendHoriLowBeamThenBeamMode(
-                        MagicshineProtocol.buildHori1300Frame(lowBeamMode),
-                        highBeam = true,
-                    )
-                }
+                // The Hori profile defines 04 01 as the High Beam command.
+                // Do not precede it with a legacy brightness command.
+                sendHoriControlCommands(
+                    listOf(MagicshineProtocol.buildHoriControlBeam(true)),
+                )
             }
-        } else {
-            val level = when (mode) {
-                Hori1300Mode.LOW -> 25
-                Hori1300Mode.MED -> 50
-                Hori1300Mode.HIGH -> 75
-                Hori1300Mode.HIGH_BEAM -> 100
-            }
-            lastHoriLowBeamLevelPercent = level
-            selectedOutputTarget = OutputTarget.LOW
-            selectedLevelPercent = level
-            SharedLightState.set(this, SharedLightState.OutputTarget.LOW, level)
-            updateOutputControls()
-            updateBrightnessControls()
-
-            // Explicitly return to Low Beam before applying the proven legacy brightness frame.
-            sendHoriControlCommands(
-                listOf(MagicshineProtocol.buildHoriControlBeam(false)),
-            )
-            sendIfPermitted(MagicshineProtocol.buildHori1300Frame(mode))
+            return
         }
+
+        // Selecting LOW/MED/HIGH always leaves High Beam first, then applies
+        // the requested legacy brightness level.
+        horiHighBeamActive = false
+        val level = when (mode) {
+            Hori1300Mode.LOW -> 25
+            Hori1300Mode.MED -> 50
+            Hori1300Mode.HIGH -> 75
+            Hori1300Mode.HIGH_BEAM -> 100
+        }
+        lastHoriLowBeamLevelPercent = level
+        selectedOutputTarget = OutputTarget.LOW
+        selectedLevelPercent = level
+        SharedLightState.set(this, OutputTarget.LOW, level)
+        updateOutputControls()
+        updateBrightnessControls()
+        sendHoriControlCommands(
+            listOf(MagicshineProtocol.buildHoriControlBeam(false)),
+        )
+        sendIfPermitted(MagicshineProtocol.buildHori1300Frame(mode))
     }
 
     private fun sendHoriLowBeamThenBeamMode(lowBeamFrame: String, highBeam: Boolean) {
