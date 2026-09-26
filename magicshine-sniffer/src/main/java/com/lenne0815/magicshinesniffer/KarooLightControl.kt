@@ -55,7 +55,7 @@ class KarooLightControl(private val context: Context) {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             sensorBinder = service
             isBound = true
-            android.util.Log.i("KarooLightControl", "$TAG: Connected to SensorService")
+            Timber.d("$TAG: Connected to SensorService")
             if (service != null) {
                 serviceExecutor.execute {
                     getLightCommandBinder(service)
@@ -70,7 +70,7 @@ class KarooLightControl(private val context: Context) {
             isBound = false
             bindRequested = false
             registeredListeners.clear()
-            android.util.Log.i("KarooLightControl", "$TAG: Disconnected from SensorService")
+            Timber.d("$TAG: Disconnected from SensorService")
         }
     }
 
@@ -82,9 +82,9 @@ class KarooLightControl(private val context: Context) {
             service.transact(TX_GET_LIGHT_CMD, data, reply, 0)
             reply.readException()
             lightCmdBinder = reply.readStrongBinder()
-            android.util.Log.i("KarooLightControl", "$TAG: Got LightCommand binder: $lightCmdBinder")
+            Timber.d("$TAG: Got LightCommand binder: $lightCmdBinder")
         } catch (e: Exception) {
-            android.util.Log.e("KarooLightControl", "$TAG: Failed to get LightCommand binder", e)
+            Timber.e(e, "$TAG: Failed to get LightCommand binder")
         } finally {
             data.recycle()
             reply.recycle()
@@ -103,7 +103,7 @@ class KarooLightControl(private val context: Context) {
             @Suppress("UNCHECKED_CAST")
             val enumClass = cls as Class<out Enum<*>>
             val enumConstants = enumClass.enumConstants
-            android.util.Log.i("KarooLightControl", "$TAG: Karoo LightMode enum values (${enumConstants?.size}): ${enumConstants?.joinToString { it.name }}")
+            Timber.i("$TAG: Karoo LightMode enum values (${enumConstants?.size}): ${enumConstants?.joinToString { it.name }}")
             lightModeEnumClass = enumClass
             lightModeParcelableCreator = { modeName ->
                 java.lang.Enum.valueOf(enumClass, modeName) as Parcelable
@@ -120,7 +120,7 @@ class KarooLightControl(private val context: Context) {
                     c.parameterTypes[c.parameterTypes.size - 2] == Int::class.javaPrimitiveType
             }
             if (deviceConstructor != null) {
-                android.util.Log.i("KarooLightControl", "$TAG: Device constructor: ${deviceConstructor.parameterTypes.map { it.simpleName }}")
+                Timber.d("$TAG: Device constructor: ${deviceConstructor.parameterTypes.map { it.simpleName }}")
                 val deviceInfoConstructor = sensorCtx.classLoader.loadClass(
                     "io.hammerhead.datamodels.timeseriesData.models.DeviceInfo",
                 ).getDeclaredConstructor()
@@ -136,12 +136,12 @@ class KarooLightControl(private val context: Context) {
                     params[params.size - 1] = null
                     deviceConstructor.newInstance(*params) as Parcelable
                 }
-                android.util.Log.i("KarooLightControl", "$TAG: Device creator ready")
+                Timber.d("$TAG: Device creator ready")
             } else {
-                android.util.Log.i("KarooLightControl", "$TAG: Could not find Device constructor with DefaultConstructorMarker")
+                Timber.w("$TAG: Could not find Device constructor with DefaultConstructorMarker")
             }
 
-            android.util.Log.i("KarooLightControl", "$TAG: LightMode class loaded")
+            Timber.d("$TAG: LightMode class loaded")
 
             pendingRegistrations.toList().forEach { registerConnectionState(it) }
             pendingRegistrations.clear()
@@ -149,7 +149,7 @@ class KarooLightControl(private val context: Context) {
             pendingLightParamRegistrations.clear()
             onServiceReady?.invoke()
         } catch (e: Exception) {
-            android.util.Log.e("KarooLightControl", "$TAG: Failed to load LightMode class", e)
+            Timber.e(e, "$TAG: Failed to load LightMode class")
         }
     }
 
@@ -165,9 +165,9 @@ class KarooLightControl(private val context: Context) {
         try {
             context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
             bindRequested = true
-            android.util.Log.i("KarooLightControl", "$TAG: Binding to SensorService")
+            Timber.d("$TAG: Binding to SensorService")
         } catch (e: Exception) {
-            android.util.Log.e("KarooLightControl", "$TAG: Failed to bind", e)
+            Timber.e(e, "$TAG: Failed to bind")
         }
     }
 
@@ -189,23 +189,23 @@ class KarooLightControl(private val context: Context) {
         registeredListeners.clear()
         pendingRegistrations.clear()
         pendingLightParamRegistrations.clear()
-        android.util.Log.i("KarooLightControl", "$TAG: Released SensorService light control")
+        Timber.d("$TAG: Released SensorService light control")
     }
 
     fun setLightMode(deviceId: String, modeName: String): Boolean {
         val binder = lightCmdBinder ?: run {
-            android.util.Log.i("KarooLightControl", "$TAG: LightCommand binder not available")
+            Timber.w("$TAG: LightCommand binder not available")
             return false
         }
         val creator = lightModeParcelableCreator ?: run {
-            android.util.Log.i("KarooLightControl", "$TAG: LightMode class not loaded")
+            Timber.w("$TAG: LightMode class not loaded")
             return false
         }
 
         val lightMode = try {
             creator(modeName)
         } catch (e: Exception) {
-            android.util.Log.e("KarooLightControl", "$TAG: Invalid mode: $modeName", e)
+            Timber.e(e, "$TAG: Invalid mode: $modeName")
             return false
         }
 
@@ -229,10 +229,10 @@ class KarooLightControl(private val context: Context) {
 
             binder.transact(TX_SET_LIGHT_MODE, data, reply, 0)
             reply.readException()
-            android.util.Log.e("KarooLightControl", $modeName, "$TAG: setLightMode($deviceId) OK")
+            Timber.d("$TAG: setLightMode($deviceId, $modeName) OK")
             return true
         } catch (e: Exception) {
-            android.util.Log.e("KarooLightControl", "$TAG: setLightMode($deviceId, $modeName, e) failed")
+            Timber.e(e, "$TAG: setLightMode($deviceId, $modeName) failed")
             return false
         } finally {
             data.recycle()
@@ -288,9 +288,9 @@ class KarooLightControl(private val context: Context) {
             binder.transact(TX_REGISTER_LIGHT_PARAMS, callData, callReply, 0)
             callReply.readException()
             registeredListeners.add(listenerId)
-            android.util.Log.i("KarooLightControl", "$TAG: Registered light parameters listener for $deviceId")
+            Timber.d("$TAG: Registered light parameters listener for $deviceId")
         } catch (e: Exception) {
-            android.util.Log.e("KarooLightControl", "$TAG: Failed to register light parameters for $deviceId", e)
+            Timber.e(e, "$TAG: Failed to register light parameters for $deviceId")
         } finally {
             callData.recycle()
             callReply.recycle()
@@ -323,7 +323,7 @@ class KarooLightControl(private val context: Context) {
                     modes.add("OFF")
                     val existing = _supportedModes.value[deviceId]
                     if (existing != modes) {
-                        android.util.Log.e("KarooLightControl", location=$locationName, supportedModes=$modes", "$TAG: LightParameters for $deviceId: mode=$modeName)
+                        Timber.d("$TAG: LightParameters for $deviceId: mode=$modeName, location=$locationName, supportedModes=$modes")
                         _supportedModes.update { it + (deviceId to modes) }
                     }
                 }
@@ -331,7 +331,7 @@ class KarooLightControl(private val context: Context) {
                 parcel.recycle()
             }
         } catch (e: Exception) {
-            android.util.Log.e("KarooLightControl", "$TAG: Failed to parse LightParameters for $deviceId", e)
+            Timber.e(e, "$TAG: Failed to parse LightParameters for $deviceId")
         }
     }
 
@@ -371,7 +371,7 @@ class KarooLightControl(private val context: Context) {
                                     4 -> "NOT_AVAILABLE"
                                     else -> "UNKNOWN"
                                 }
-                                android.util.Log.i("KarooLightControl", "$TAG: Connection state $deviceId: $stateName")
+                                Timber.d("$TAG: Connection state $deviceId: $stateName")
                                 _connectionStates.update { it + (deviceId to stateName) }
                             } finally {
                                 parcel.recycle()
@@ -398,9 +398,9 @@ class KarooLightControl(private val context: Context) {
             binder.transact(6, callData, callReply, 0)
             callReply.readException()
             registeredListeners.add(listenerId)
-            android.util.Log.i("KarooLightControl", "$TAG: Registered connection state listener for $deviceId")
+            Timber.d("$TAG: Registered connection state listener for $deviceId")
         } catch (e: Exception) {
-            android.util.Log.e("KarooLightControl", "$TAG: Failed to register connection state for $deviceId", e)
+            Timber.e(e, "$TAG: Failed to register connection state for $deviceId")
         } finally {
             callData.recycle()
             callReply.recycle()
@@ -421,7 +421,7 @@ class KarooLightControl(private val context: Context) {
             reply.readException()
             registeredListeners.remove(listenerId)
         } catch (e: Exception) {
-            android.util.Log.e("KarooLightControl", "$TAG: Failed to unregister connection state for $listenerId", e)
+            Timber.e(e, "$TAG: Failed to unregister connection state for $listenerId")
         } finally {
             data.recycle()
             reply.recycle()
