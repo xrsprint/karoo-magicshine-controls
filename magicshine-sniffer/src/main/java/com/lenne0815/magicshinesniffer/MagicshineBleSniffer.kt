@@ -60,6 +60,8 @@ class MagicshineBleSniffer(
     @Volatile private var stateMonitorJob: Job? = null
     private val targetService = Uuid.parse("0000FFE1-0000-1000-8000-00805f9b34fb")
     private val targetCharacteristic = Uuid.parse("0000FFE0-0000-1000-8000-00805f9b34fb")
+    private val horiService = Uuid.parse("ADB425D4-B1C6-11ED-AFA1-0242AC120002")
+    private val horiControlCharacteristic = Uuid.parse("8CE5DD03-0A4D-11E9-AB14-D663BD873D93")
     private val connectionOptions = CentralManager.ConnectionOptions.Direct(
         // The Hori 1300 can take longer than 8 seconds to complete the
         // Android BLE connection/service setup. Give it more time and one
@@ -148,6 +150,65 @@ class MagicshineBleSniffer(
                 writeInternal(label, frameHex)
             }
         }
+    }
+
+    /**
+     * HORI diagnostic: send the established M1/module-1 layout used elsewhere
+     * in this project, rather than the newer experimental shifted layout.
+     * The value is decimal 0..100 and every exact frame is logged.
+     */
+    fun sendHoriM1Brightness(percent: Int) {
+        val value = percent.coerceIn(0, 100)
+        val checksum = value xor 0x5C
+        val frame = "DE14A201010101%02X000150000000000000BB%02XED".format(value, checksum)
+        send("HORI M1 BRIGHTNESS $value", frame)
+    }
+
+    fun sendHoriBeam(highBeam: Boolean) {
+        sendHoriControl("HORI BEAM ${if (highBeam) "HIGH" else "LOW"}", "04%02X".format(if (highBeam) 1 else 0))
+    }
+
+    fun sendHoriMode(mode: Int) {
+        val value = mode.coerceIn(0, 255)
+        sendHoriControl("HORI MODE $value", "03%02X".format(value))
+    }
+
+    private fun sendHoriControl(label: String, commandHex: String) {
+        scope.launch {
+            operationMutex.withLock {
+                val target = peripheral
+                if (target?.state?.value !is ConnectionState.Connected) {
+                    line("ERROR $label ignored: not connected")
+                    return@withLock
+                }
+                val control = findHoriControlCharacteristic(target)
+                if (control == null) {
+                    line("ERROR $label: 8CE5DD03 unavailable")
+                    return@withLock
+                }
+                line("TX HORI CONTROL REQUEST 00 -> 8CE5DD03")
+                runCatching { control.write(byteArrayOf(0x00), WriteType.WITH_RESPONSE) }
+                    .onFailure { line("ERROR TX HORI CONTROL REQUEST ${it::class.java.simpleName}: ${it.message}") }
+                    .getOrElse { return@withLock }
+                delay(60)
+                line("TX $label $commandHex -> 8CE5DD03")
+                runCatching { control.write(commandHex.hexToBytes(), WriteType.WITH_RESPONSE) }
+                    .onFailure { line("ERROR TX $label ${it::class.java.simpleName}: ${it.message}") }
+            }
+        }
+    }
+
+    private suspend fun findHoriControlCharacteristic(target: Peripheral): RemoteCharacteristic? {
+        val servicesFlow = target.services(listOf(horiService))
+        var service = servicesFlow.value.firstOrNull()
+        if (service == null) {
+            repeat(8) {
+                delay(60)
+                service = servicesFlow.value.firstOrNull()
+                if (service != null) return@repeat
+            }
+        }
+        return service?.characteristics?.firstOrNull { it.uuid == horiControlCharacteristic }
     }
 
     fun runSupportSweep() {
