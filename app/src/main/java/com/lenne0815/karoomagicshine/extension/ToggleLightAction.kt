@@ -12,12 +12,9 @@ class ToggleLightAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters,
     ) {
-        val action = MagicshineControlService.ACTION_HORI_TOGGLE_POWER else {
-            MagicshineControlService.ACTION_RETRY_CONNECT
-        }
         context.startService(
             Intent(context, MagicshineControlService::class.java)
-                .setAction(action),
+                .setAction(MagicshineControlService.ACTION_HORI_TOGGLE_POWER),
         )
     }
 }
