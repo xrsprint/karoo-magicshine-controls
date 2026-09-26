@@ -529,6 +529,11 @@ class MagicshineControlService : Service() {
         cancelRideFlash()
         controller.send(frameHex)
     }
+
+    fun sendHoriControl(commands: List<String>) {
+        cancelRideFlash()
+        controller.sendHoriControl(commands)
+    }
     fun startRepeatingCommand(frameHex: String, intervalMs: Long = 1500L) {
         cancelRideFlash()
         controller.startRepeatingCommand(frameHex, intervalMs)
