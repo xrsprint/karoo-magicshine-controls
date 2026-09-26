@@ -66,6 +66,8 @@ class MainActivity : AppCompatActivity() {
     private var selectedModule: MagicshineModule = MagicshineModule.MODULE_1
     private var selectedOutputTarget: OutputTarget = OutputTarget.LOW
     private var selectedLevelPercent: Int? = null
+    // Remember the last Low Beam brightness so HIGH BEAM can toggle back to it.
+    private var lastHoriLowBeamLevelPercent: Int = 25
     private var currentSelectedLampAddress: String? = null
     private var currentSelectedLampName: String? = null
     private var lastRenderedCandidateSignature: String = ""
@@ -245,27 +247,68 @@ class MainActivity : AppCompatActivity() {
 
     private fun sendHoriMode(mode: Hori1300Mode) {
         controlService?.stopRepeatingCommand()
-        selectedOutputTarget = OutputTarget.LOW
         selectedModule = MagicshineModule.MODULE_1
-        selectedLevelPercent = when (mode) {
-            Hori1300Mode.LOW -> 25
-            Hori1300Mode.MED -> 50
-            Hori1300Mode.HIGH -> 75
-            Hori1300Mode.HIGH_BEAM -> 100
-        }
-        SharedLightState.set(this, SharedLightState.OutputTarget.LOW, selectedLevelPercent)
-        updateOutputControls()
-        updateBrightnessControls()
 
         if (mode == Hori1300Mode.HIGH_BEAM) {
-            // Bluetooth Light Profile: mode 15 = constant ON, beam 1 = High Beam.
-            sendHoriControlCommands(
-                listOf(
-                    MagicshineProtocol.buildHoriControlMode(15),
-                    MagicshineProtocol.buildHoriControlBeam(true),
-                ),
-            )
+            val wasHighBeam = selectedOutputTarget != OutputTarget.OFF && selectedLevelPercent == 100
+
+            if (wasHighBeam) {
+                // HIGH BEAM is a toggle. Do not send mode=15 again because that
+                // resets the light's output instead of simply leaving High Beam.
+                selectedOutputTarget = OutputTarget.LOW
+                selectedLevelPercent = lastHoriLowBeamLevelPercent
+                SharedLightState.set(
+                    this,
+                    SharedLightState.OutputTarget.LOW,
+                    lastHoriLowBeamLevelPercent,
+                )
+                updateOutputControls()
+                updateBrightnessControls()
+                sendHoriControlCommands(
+                    listOf(MagicshineProtocol.buildHoriControlBeam(false)),
+                )
+            } else {
+                // While already on in Low Beam, only change the beam mode. This
+                // preserves the current Low Beam brightness instead of dimming it.
+                val currentLowBeamLevel = selectedLevelPercent
+                    ?.takeIf { it in setOf(25, 50, 75) }
+                    ?: lastHoriLowBeamLevelPercent
+                lastHoriLowBeamLevelPercent = currentLowBeamLevel
+                selectedOutputTarget = OutputTarget.LOW
+                selectedLevelPercent = 100
+                SharedLightState.set(this, SharedLightState.OutputTarget.LOW, 100)
+                updateOutputControls()
+                updateBrightnessControls()
+
+                if (currentConnectionStatus == "connected") {
+                    sendHoriControlCommands(
+                        listOf(MagicshineProtocol.buildHoriControlBeam(true)),
+                    )
+                } else {
+                    // If the light is off, mode=15 is required before selecting
+                    // High Beam.
+                    sendHoriControlCommands(
+                        listOf(
+                            MagicshineProtocol.buildHoriControlMode(15),
+                            MagicshineProtocol.buildHoriControlBeam(true),
+                        ),
+                    )
+                }
+            }
         } else {
+            val level = when (mode) {
+                Hori1300Mode.LOW -> 25
+                Hori1300Mode.MED -> 50
+                Hori1300Mode.HIGH -> 75
+                Hori1300Mode.HIGH_BEAM -> 100
+            }
+            lastHoriLowBeamLevelPercent = level
+            selectedOutputTarget = OutputTarget.LOW
+            selectedLevelPercent = level
+            SharedLightState.set(this, SharedLightState.OutputTarget.LOW, level)
+            updateOutputControls()
+            updateBrightnessControls()
+
             // Explicitly return to Low Beam before applying the proven legacy brightness frame.
             sendHoriControlCommands(
                 listOf(MagicshineProtocol.buildHoriControlBeam(false)),
