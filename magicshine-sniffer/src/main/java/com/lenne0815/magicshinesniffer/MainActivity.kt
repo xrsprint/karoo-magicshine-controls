@@ -19,6 +19,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import io.hammerhead.karooext.KarooSystemService
 import io.hammerhead.karooext.models.RequestBluetooth
+import io.hammerhead.karooext.models.SavedDevices
 import java.text.SimpleDateFormat
 import java.util.ArrayDeque
 import java.util.Date
@@ -88,7 +89,8 @@ class MainActivity : Activity() {
         deviceRow = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(deviceRow, LinearLayout.LayoutParams(match(), wrap()))
 
-        root.addView(buttonRow("CONNECT", "DISCONNECT", "MARK CURRENT"))
+        root.addView(buttonRow("ANT DEVICES", "CONNECT", "DISCONNECT"))
+        root.addView(buttonRow("MARK CURRENT"))
         root.addView(TextView(this).apply {
             text = "HORI 1300 diagnostic controls"
             textSize = 12f
@@ -136,6 +138,7 @@ class MainActivity : Activity() {
 
     private fun handleButton(label: String) {
         when (label) {
+            "ANT DEVICES" -> queryAntBikeLights()
             "CONNECT" -> sniffer.scan()
             "DISCONNECT" -> sniffer.disconnect()
             "MARK CURRENT" -> appendLog("========== MARK CURRENT PHYSICAL BATTERY ==========")
@@ -212,6 +215,23 @@ class MainActivity : Activity() {
                 }
             }
         }.onFailure { appendLog("ERROR KarooSystem: ${it.message}") }
+    }
+
+
+    private fun queryAntBikeLights() {
+        appendLog("========== KAROO SAVED BIKE LIGHTS ==========")
+        var consumerId: String? = null
+        consumerId = karooSystem.addConsumer<SavedDevices> { saved ->
+            val bikeLights = saved.devices.filter { device ->
+                device.supportedDataTypes.contains("TYPE_BIKE_LIGHT_ID")
+            }
+            appendLog("ANT BIKE LIGHT COUNT=${bikeLights.size}")
+            bikeLights.forEach { device ->
+                appendLog("ANT LIGHT id=${device.id} name=${device.name} enabled=${device.enabled} manufacturer=${device.details?.manufacturer}")
+                appendLog("ANT LIGHT types=${device.supportedDataTypes.joinToString(",")}")
+            }
+            consumerId?.let { karooSystem.removeConsumer(it) }
+        }
     }
 
     private fun requestRuntimePermissions() {
