@@ -58,7 +58,7 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
     @Composable
     private fun StaticControls() {
         Column(
-            modifier = GlanceModifier.fillMaxSize().background(ColorProvider(Color(0xFF5A5E63), Color(0xFF5A5E63))).padding(4.dp),
+            modifier = GlanceModifier.fillMaxSize().background(ColorProvider(Color(0xFF45494E), Color(0xFF45494E))).padding(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically,
         ) {
