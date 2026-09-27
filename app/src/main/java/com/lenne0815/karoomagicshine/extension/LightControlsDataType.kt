@@ -35,6 +35,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalGlanceRemoteViewsApi::class)
 class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID) {
@@ -47,38 +48,40 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
         val height = (config.viewSize.second / density).dp
         val scope = CoroutineScope(Dispatchers.Main)
         val job: Job = scope.launch {
-            val remoteViews = glance.compose(context, DpSize(width, height)) {
-                StaticControls()
+            HoriPressFeedback.pressed.collectLatest { pressed ->
+                val remoteViews = glance.compose(context, DpSize(width, height)) {
+                    StaticControls(pressed)
+                }
+                emitter.updateView(remoteViews.remoteViews)
             }
-            emitter.updateView(remoteViews.remoteViews)
         }
         emitter.setCancellable { job.cancel() }
     }
 
     @Composable
-    private fun StaticControls() {
+    private fun StaticControls(pressed: String?) {
         Column(
             modifier = GlanceModifier.fillMaxSize().background(ColorProvider(Color(0xFF45494E), Color(0xFF45494E))).padding(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TestBox("OFF", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriOffAction>())
+            TestBox("OFF", pressed == "OFF", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriOffAction>())
             Spacer(GlanceModifier.size(6.dp))
-            TestBox("LOW", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriLowAction>())
+            TestBox("LOW", pressed == "LOW", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriLowAction>())
             Spacer(GlanceModifier.size(6.dp))
-            TestBox("MED", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriMedAction>())
+            TestBox("MED", pressed == "MED", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriMedAction>())
             Spacer(GlanceModifier.size(6.dp))
-            TestBox("HIGH", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriHighAction>())
+            TestBox("HIGH", pressed == "HIGH", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriHighAction>())
             Spacer(GlanceModifier.size(6.dp))
-            TestBox("HIGH BEAM", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriHighBeamAction>())
+            TestBox("HIGH BEAM", pressed == "HIGH BEAM", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriHighBeamAction>())
         }
     }
 
     @Composable
-    private fun TestBox(label: String, modifier: GlanceModifier, action: Action) {
+    private fun TestBox(label: String, isPressed: Boolean, modifier: GlanceModifier, action: Action) {
         Box(
             modifier = modifier
-                .background(ColorProvider(Color(0xFF171717), Color(0xFF171717)))
+                .background(ColorProvider(if (isPressed) Color(0xFF20D39B) else Color(0xFF171717), if (isPressed) Color(0xFF20D39B) else Color(0xFF171717)))
                 .cornerRadius(12.dp)
                 .padding(3.dp)
                 .clickable(action),
