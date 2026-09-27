@@ -10,6 +10,7 @@ import androidx.glance.GlanceModifier
 import androidx.glance.appwidget.ExperimentalGlanceRemoteViewsApi
 import androidx.glance.appwidget.GlanceRemoteViews
 import androidx.glance.background
+import androidx.glance.action.Action
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
@@ -57,29 +58,30 @@ class LightControlsDataType(extension: String) : DataTypeImpl(extension, TYPE_ID
     @Composable
     private fun StaticControls() {
         Column(
-            modifier = GlanceModifier.fillMaxSize().padding(4.dp),
+            modifier = GlanceModifier.fillMaxSize().background(ColorProvider(Color(0xFF5A5E63), Color(0xFF5A5E63))).padding(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TestBox("OFF", GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriOffAction>()))
+            TestBox("OFF", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriOffAction>())
             Spacer(GlanceModifier.size(6.dp))
-            TestBox("LOW", GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriLowAction>()))
+            TestBox("LOW", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriLowAction>())
             Spacer(GlanceModifier.size(6.dp))
-            TestBox("MED", GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriMedAction>()))
+            TestBox("MED", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriMedAction>())
             Spacer(GlanceModifier.size(6.dp))
-            TestBox("HIGH", GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriHighAction>()))
+            TestBox("HIGH", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriHighAction>())
             Spacer(GlanceModifier.size(6.dp))
-            TestBox("HIGH BEAM", GlanceModifier.fillMaxWidth().defaultWeight().clickable(actionRunCallback<HoriHighBeamAction>()))
+            TestBox("HIGH BEAM", GlanceModifier.fillMaxWidth().defaultWeight(), actionRunCallback<HoriHighBeamAction>())
         }
     }
 
     @Composable
-    private fun TestBox(label: String, modifier: GlanceModifier) {
+    private fun TestBox(label: String, modifier: GlanceModifier, action: Action) {
         Box(
             modifier = modifier
                 .background(ColorProvider(Color(0xFF171717), Color(0xFF171717)))
                 .cornerRadius(12.dp)
-                .padding(3.dp),
+                .padding(3.dp)
+                .clickable(action),
             contentAlignment = Alignment.Center,
         ) {
             Column(
