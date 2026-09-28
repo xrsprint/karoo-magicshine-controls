@@ -264,8 +264,18 @@ class MagicshineControlService : Service() {
     private fun handleHoriOff() {
         cancelRideFlash()
         cancelPendingWork()
-        SharedLightState.set(this, SharedLightState.OutputTarget.OFF, null)
-        scope.launch { antLightControl.setLightMode(HORI_ANT_DEVICE_ID, "OFF") }
+        scope.launch {
+            if (!controller.hasLiveConnection()) {
+                controller.connectHoriControlOnly()
+                waitForConnectionResult(UI_RETRY_CONNECT_WAIT_MS)
+            }
+            if (controller.hasLiveConnection()) {
+                controller.sendHoriControl(listOf(MagicshineProtocol.buildHoriControlBeam(false)))
+                delay(500)
+            }
+            antLightControl.setLightMode(HORI_ANT_DEVICE_ID, "OFF")
+            SharedLightState.set(this@MagicshineControlService, SharedLightState.OutputTarget.OFF, null)
+        }
     }
 
     private fun handleHoriTogglePower() {
